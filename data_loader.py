@@ -1,23 +1,82 @@
+import gzip
+import io
 import os
+import time
 import functools
 import pandas as pd
 
 
 _KEBOOLA_BUCKET = "in.c-Garmin_full"
+_KEBOOLA_STORAGE_URL = os.environ.get(
+    "KEBOOLA_STORAGE_URL", "https://connection.us-east4.gcp.keboola.com"
+)
+_KEBOOLA_STORAGE_TOKEN = os.environ.get("KEBOOLA_STORAGE_TOKEN")
 
-_KEBOOLA_TABLES = {
+_KEBOOLA_TABLE_IDS = {
+    "activities.csv":       f"{_KEBOOLA_BUCKET}.activities",
+    "activity_details.csv": f"{_KEBOOLA_BUCKET}.activity_details",
+    "streams.csv":          f"{_KEBOOLA_BUCKET}.streams",
+}
+
+_KEBOOLA_LOCAL_PATHS = {
     "activities.csv":        f"/data/in/tables/{_KEBOOLA_BUCKET}.activities.csv",
     "activity_details.csv":  f"/data/in/tables/{_KEBOOLA_BUCKET}.activity_details.csv",
     "streams.csv":           f"/data/in/tables/{_KEBOOLA_BUCKET}.streams.csv",
 }
 
 
-def get_data_path(filename: str) -> str:
-    keboola_path = _KEBOOLA_TABLES.get(filename)
+def _fetch_keboola_table(table_id: str) -> io.StringIO:
+    import requests
+
+    headers = {"X-StorageApi-Token": _KEBOOLA_STORAGE_TOKEN}
+
+    resp = requests.post(
+        f"{_KEBOOLA_STORAGE_URL}/v2/storage/tables/{table_id}/export-async",
+        headers=headers,
+        timeout=30,
+    )
+    resp.raise_for_status()
+    job_id = resp.json()["id"]
+
+    for _ in range(180):
+        job_resp = requests.get(
+            f"{_KEBOOLA_STORAGE_URL}/v2/storage/jobs/{job_id}",
+            headers=headers,
+            timeout=10,
+        )
+        job = job_resp.json()
+        if job["status"] == "success":
+            break
+        elif job["status"] in ("error", "terminated"):
+            raise RuntimeError(
+                f"Keboola export failed: {job.get('error', {}).get('message', 'unknown')}"
+            )
+        time.sleep(1)
+    else:
+        raise RuntimeError("Keboola export timed out after 180 seconds")
+
+    file_info = job["results"]["file"]
+    download_url = file_info["url"]
+
+    csv_resp = requests.get(download_url, timeout=180)
+    csv_resp.raise_for_status()
+
+    content = csv_resp.content
+    if file_info.get("name", "").endswith(".gz") or content[:2] == b"\x1f\x8b":
+        content = gzip.decompress(content)
+
+    return io.StringIO(content.decode("utf-8"))
+
+
+def _load_csv(filename: str, **kwargs) -> pd.DataFrame:
+    if _KEBOOLA_STORAGE_TOKEN:
+        table_id = _KEBOOLA_TABLE_IDS[filename]
+        return pd.read_csv(_fetch_keboola_table(table_id), **kwargs)
+    keboola_path = _KEBOOLA_LOCAL_PATHS.get(filename)
     if keboola_path and os.path.exists(keboola_path):
-        return keboola_path
-    # Local fallback: CSVs live one level up (strava_output/)
-    return os.path.join(os.path.dirname(__file__), "..", filename)
+        return pd.read_csv(keboola_path, **kwargs)
+    local_path = os.path.join(os.path.dirname(__file__), "..", filename)
+    return pd.read_csv(local_path, **kwargs)
 
 
 def _clean_sport_type(series: pd.Series) -> pd.Series:
@@ -33,7 +92,7 @@ def load_activities() -> pd.DataFrame:
         "average_heartrate", "max_heartrate", "elev_high", "elev_low",
         "trainer", "commute", "pr_count", "workout_type", "gear_id",
     ]
-    df = pd.read_csv(get_data_path("activities.csv"), usecols=cols, low_memory=False)
+    df = _load_csv("activities.csv", usecols=cols, low_memory=False)
     df["sport_type"] = _clean_sport_type(df["sport_type"])
     df["start_date_local"] = pd.to_datetime(df["start_date_local"], utc=True).dt.tz_convert("Europe/Prague")
     df["date"] = df["start_date_local"].dt.date
@@ -59,9 +118,9 @@ def load_activity_details() -> pd.DataFrame:
         "weighted_average_watts", "kilojoules", "device_watts", "has_heartrate",
         "splits_metric", "gear_name",
     ]
-    available = pd.read_csv(get_data_path("activity_details.csv"), nrows=0).columns.tolist()
-    load_cols = [c for c in cols if c in available]
-    return pd.read_csv(get_data_path("activity_details.csv"), usecols=load_cols, low_memory=False)
+    df = _load_csv("activity_details.csv", low_memory=False)
+    load_cols = [c for c in cols if c in df.columns]
+    return df[load_cols]
 
 
 @functools.lru_cache(maxsize=1)
@@ -75,7 +134,7 @@ def load_streams() -> pd.DataFrame:
         "distance": "float32",
         "grade_smooth": "float32",
     }
-    df = pd.read_csv(get_data_path("streams.csv"), usecols=cols, dtype=dtypes, low_memory=False)
+    df = _load_csv("streams.csv", usecols=cols, dtype=dtypes, low_memory=False)
     if df["moving"].dtype == object:
         df["moving"] = df["moving"].map({"True": True, "False": False, True: True, False: False})
     df["heartrate_valid"] = df["heartrate"].notna() & (df["heartrate"] > 0)
