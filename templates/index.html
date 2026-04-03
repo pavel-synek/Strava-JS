@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Strava Training Dashboard</title>
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <header>
+    <h1>🏃 Strava Training Dashboard</h1>
+    <div id="header-meta"></div>
+  </header>
+
+  <!-- Settings bar -->
+  <div id="settings-bar">
+    <div class="setting-group">
+      <label>From</label>
+      <input type="date" id="date-start" />
+    </div>
+    <div class="setting-group">
+      <label>To</label>
+      <input type="date" id="date-end" />
+    </div>
+    <div class="setting-group">
+      <label>Sports</label>
+      <select id="sports-select" multiple size="1"></select>
+    </div>
+    <div class="setting-group">
+      <label>Max HR</label>
+      <input type="number" id="max-hr" min="150" max="220" value="185" />
+    </div>
+    <div class="setting-group">
+      <label>Resting HR</label>
+      <input type="number" id="resting-hr" min="30" max="80" value="50" />
+    </div>
+    <div class="setting-group">
+      <label>Zone model</label>
+      <select id="zone-model">
+        <option value="5zone">5-Zone</option>
+        <option value="3zone">3-Zone</option>
+      </select>
+    </div>
+    <button id="apply-btn">Apply</button>
+  </div>
+
+  <!-- Tabs -->
+  <nav id="tab-nav">
+    <button class="tab-btn active" data-tab="overview">Overview</button>
+    <button class="tab-btn" data-tab="hr-zones">HR Zones &amp; Efficiency</button>
+    <button class="tab-btn" data-tab="fitness">Fitness Tracker</button>
+    <button class="tab-btn" data-tab="pacing">Pacing &amp; Splits</button>
+    <button class="tab-btn" data-tab="periodization">Volume &amp; Periodization</button>
+  </nav>
+
+  <main>
+    <!-- ── Tab 1: Overview ── -->
+    <section id="tab-overview" class="tab-content active">
+      <div id="kpi-row" class="kpi-row"></div>
+      <div class="chart-row">
+        <div class="chart-box wide"><h3>Weekly mileage heatmap</h3><div id="chart-heatmap"></div></div>
+        <div class="chart-box narrow"><h3>Activity types</h3><div id="chart-sports"></div></div>
+      </div>
+      <div class="chart-box full"><h3>Monthly distance &amp; elevation</h3><div id="chart-monthly"></div></div>
+      <div id="streak-row" class="kpi-row"></div>
+    </section>
+
+    <!-- ── Tab 2: HR Zones ── -->
+    <section id="tab-hr-zones" class="tab-content">
+      <div id="zone-defs-wrap"><h3>HR Zone Definitions</h3><div id="zone-defs-table"></div></div>
+      <div class="chart-row">
+        <div class="chart-box half">
+          <h3>Rolling time in zones</h3>
+          <div class="sub-controls">
+            <label>Window:
+              <select id="zone-window">
+                <option value="30">30 days</option>
+                <option value="90" selected>90 days</option>
+                <option value="365">365 days</option>
+              </select>
+            </label>
+          </div>
+          <div id="chart-zones"></div>
+        </div>
+        <div class="chart-box half"><h3>Aerobic efficiency trend</h3><p class="caption">Speed ÷ HR — rising = getting fitter</p><div id="chart-ae"></div></div>
+      </div>
+      <div class="chart-box full"><h3>HR drift per activity</h3><p class="caption">Points above diagonal = HR rose during the run</p><div id="chart-drift"></div></div>
+    </section>
+
+    <!-- ── Tab 3: Fitness ── -->
+    <section id="tab-fitness" class="tab-content">
+      <div id="fitness-kpi-row" class="kpi-row"></div>
+      <div class="chart-box full"><h3>Fitness / Fatigue / Form (ATL · CTL · TSB)</h3><p class="caption">CTL = 42-day fitness base · ATL = 7-day fatigue · TSB = CTL − ATL (form)</p><div id="chart-fitness"></div></div>
+    </section>
+
+    <!-- ── Tab 4: Pacing ── -->
+    <section id="tab-pacing" class="tab-content">
+      <div class="chart-row">
+        <div class="chart-box half"><h3>Positive vs negative splits</h3><p class="caption">Negative = faster 2nd half (good pacing)</p><div id="chart-splits"></div></div>
+        <div class="chart-box half"><h3>Pacing consistency</h3><p class="caption">Lower std = more even km pacing</p><div id="chart-consistency"></div></div>
+      </div>
+      <div class="chart-box full"><h3>Best efforts over time <span class="caption">(estimated from avg pace)</span></h3><div id="chart-best"></div></div>
+    </section>
+
+    <!-- ── Tab 5: Periodization ── -->
+    <section id="tab-periodization" class="tab-content">
+      <div class="chart-row">
+        <div class="chart-box half"><h3>Weekly volume</h3><div id="chart-weekly"></div></div>
+        <div class="chart-box half"><h3>Year-over-year monthly comparison</h3><div id="chart-yoy"></div></div>
+      </div>
+      <div class="chart-row">
+        <div class="chart-box half"><h3>Training monotony</h3><p class="caption">Caution &gt;1.5 · Risk &gt;2.0</p><div id="chart-monotony"></div></div>
+        <div class="chart-box half"><h3>Easy / Moderate / Hard distribution</h3><div id="chart-intensity"></div></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="loading-overlay"><div class="spinner"></div><p id="loading-msg">Loading…</p></div>
+
+  <script src="/static/js/main.js"></script>
+  <script src="/static/js/overview.js"></script>
+  <script src="/static/js/hr_zones.js"></script>
+  <script src="/static/js/fitness.js"></script>
+  <script src="/static/js/pacing.js"></script>
+  <script src="/static/js/periodization.js"></script>
+</body>
+</html>
