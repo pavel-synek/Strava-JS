@@ -25,7 +25,21 @@ _KEBOOLA_LOCAL_PATHS = {
 }
 
 
+def _decompress(content: bytes) -> bytes:
+    if content[:2] == b"\x1f\x8b":
+        return gzip.decompress(content)
+    return content
+
+
+def _fetch_url(url: str) -> bytes:
+    import requests
+    resp = requests.get(url, timeout=180)
+    resp.raise_for_status()
+    return resp.content
+
+
 def _fetch_keboola_table(table_id: str) -> io.StringIO:
+    import json
     import requests
 
     headers = {"X-StorageApi-Token": _KEBOOLA_STORAGE_TOKEN}
@@ -55,10 +69,8 @@ def _fetch_keboola_table(table_id: str) -> io.StringIO:
     else:
         raise RuntimeError("Keboola export timed out after 180 seconds")
 
-    file_info = job["results"]["file"]
-    file_id = file_info.get("id")
+    file_id = job["results"]["file"]["id"]
 
-    # The job result contains only the file ID; fetch the signed download URL separately
     file_meta_resp = requests.get(
         f"{_KEBOOLA_STORAGE_URL}/v2/storage/files/{file_id}",
         headers=headers,
@@ -66,21 +78,55 @@ def _fetch_keboola_table(table_id: str) -> io.StringIO:
     )
     file_meta_resp.raise_for_status()
     file_meta = file_meta_resp.json()
+
     download_url = file_meta.get("url") or file_meta.get("absPath")
     if not download_url:
         raise RuntimeError(
-            f"No download URL in file metadata. Keys present: {list(file_meta.keys())}"
+            f"No download URL in file metadata. Keys: {list(file_meta.keys())}"
         )
 
-    csv_resp = requests.get(download_url, timeout=180)
-    csv_resp.raise_for_status()
+    raw = _decompress(_fetch_url(download_url))
 
-    content = csv_resp.content
-    file_name = file_meta.get("name", file_info.get("name", ""))
-    if file_name.endswith(".gz") or content[:2] == b"\x1f\x8b":
-        content = gzip.decompress(content)
+    # Keboola may export sliced tables: the downloaded file is a newline-delimited
+    # JSON manifest listing individual slice URLs rather than actual CSV data.
+    # Detect this by checking whether the first non-empty line is a JSON object.
+    first_line = raw.split(b"\n", 1)[0].strip()
+    is_manifest = first_line.startswith(b"{") or first_line.startswith(b"[")
 
-    return io.StringIO(content.decode("utf-8"))
+    if is_manifest:
+        try:
+            manifest = json.loads(raw)
+            # Format: {"entries": [{"url": "...", "mandatory": true}, ...]}
+            entries = manifest if isinstance(manifest, list) else manifest.get("entries", [])
+            slice_urls = [e["url"] for e in entries if e.get("url")]
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to parse slice manifest (first 200 bytes: {raw[:200]}): {exc}"
+            )
+        if not slice_urls:
+            raise RuntimeError(f"Manifest had no entries. Content: {raw[:500]}")
+
+        chunks = []
+        header = None
+        for url in slice_urls:
+            chunk = _decompress(_fetch_url(url))
+            text = chunk.decode("utf-8")
+            lines = text.splitlines()
+            if not lines:
+                continue
+            if header is None:
+                # First slice contains the header
+                header = lines[0]
+                chunks.append(text)
+            else:
+                # Subsequent slices may repeat the header — strip it
+                if lines[0] == header:
+                    chunks.append("\n".join(lines[1:]))
+                else:
+                    chunks.append(text)
+        return io.StringIO("\n".join(chunks))
+
+    return io.StringIO(raw.decode("utf-8"))
 
 
 def _load_csv(filename: str, **kwargs) -> pd.DataFrame:
