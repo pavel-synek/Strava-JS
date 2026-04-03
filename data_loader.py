@@ -333,7 +333,7 @@ def _get_zone_summary_bq(zones: dict) -> pd.DataFrame:
         FROM `{_BQ_PROJECT}`.`{_BQ_DATASET}`.`streams`
         WHERE heartrate IS NOT NULL AND heartrate != ''
           AND SAFE_CAST(heartrate AS FLOAT64) > 0
-    )
+    ) t
     GROUP BY activity_id
     """
     df = _bq_query(sql)
