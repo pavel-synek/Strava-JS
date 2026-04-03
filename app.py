@@ -1,8 +1,15 @@
+import traceback
+
 import numpy as np
 import pandas as pd
 from flask import Flask, jsonify, render_template, request
 
+import os
+
 from data_loader import (
+    _KEBOOLA_STORAGE_TOKEN,
+    _KEBOOLA_STORAGE_URL,
+    _KEBOOLA_LOCAL_PATHS,
     get_all_hr_drift,
     get_zone_summary,
     load_activities,
@@ -391,6 +398,69 @@ def api_periodization():
         "monotony": monotony_data,
         "intensity": intensity_data,
     })
+
+
+# ── Debug ─────────────────────────────────────────────────────────────────────
+
+@app.route("/api/debug")
+def api_debug():
+    result = {
+        "env": {
+            "KEBOOLA_STORAGE_TOKEN": (
+                f"{_KEBOOLA_STORAGE_TOKEN[:6]}…{_KEBOOLA_STORAGE_TOKEN[-4:]}"
+                if _KEBOOLA_STORAGE_TOKEN and len(_KEBOOLA_STORAGE_TOKEN) > 10
+                else ("SET (short)" if _KEBOOLA_STORAGE_TOKEN else "NOT SET")
+            ),
+            "KEBOOLA_STORAGE_URL": _KEBOOLA_STORAGE_URL,
+        },
+        "local_paths": {
+            name: os.path.exists(path)
+            for name, path in _KEBOOLA_LOCAL_PATHS.items()
+        },
+        "token_verify": None,
+        "activities_preview": None,
+        "errors": [],
+    }
+
+    if _KEBOOLA_STORAGE_TOKEN:
+        try:
+            import requests as req
+            resp = req.get(
+                f"{_KEBOOLA_STORAGE_URL}/v2/storage/tokens/verify",
+                headers={"X-StorageApi-Token": _KEBOOLA_STORAGE_TOKEN},
+                timeout=10,
+            )
+            if resp.ok:
+                data = resp.json()
+                result["token_verify"] = {
+                    "ok": True,
+                    "description": data.get("description", ""),
+                    "project": data.get("admin", {}).get("name", "") or str(data.get("isMasterToken")),
+                }
+            else:
+                result["token_verify"] = {"ok": False, "status": resp.status_code, "body": resp.text[:300]}
+        except Exception as e:
+            result["errors"].append(f"Token verify failed: {e}")
+
+    try:
+        acts = load_activities()
+        result["activities_preview"] = {
+            "rows": len(acts),
+            "columns": acts.columns.tolist(),
+            "date_range": f"{acts['start_date_local'].dt.date.min()} → {acts['start_date_local'].dt.date.max()}",
+            "sports": sorted(acts["sport_type"].dropna().unique().tolist()),
+        }
+    except Exception as e:
+        result["errors"].append(f"load_activities failed: {traceback.format_exc()}")
+
+    return jsonify(result)
+
+
+# ── Error handler ─────────────────────────────────────────────────────────────
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
 
 
 if __name__ == "__main__":

@@ -44,7 +44,14 @@ function buildQuery(params) {
 
 async function fetchAPI(endpoint, params) {
   const res = await fetch(`/api/${endpoint}?${buildQuery(params)}`);
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const body = await res.json();
+      detail = body.traceback || body.error || "";
+    } catch (_) {}
+    throw new Error(`API /${endpoint} returned ${res.status}${detail ? ":\n" + detail : ""}`);
+  }
   return res.json();
 }
 
@@ -91,9 +98,27 @@ async function loadTab(tabName) {
     tabLoaded[tabName] = true;
   } catch (err) {
     console.error(err);
+    showError(tabName, err.message);
   } finally {
     hideLoading();
   }
+}
+
+function showError(tabName, message) {
+  const section = document.getElementById(`tab-${tabName}`);
+  if (!section) return;
+  let box = section.querySelector(".error-box");
+  if (!box) {
+    box = document.createElement("div");
+    box.className = "error-box";
+    section.prepend(box);
+  }
+  box.innerHTML = `<strong>Failed to load data</strong><pre>${escapeHtml(message)}</pre>` +
+    `<a href="/api/debug" target="_blank" class="debug-link">Open /api/debug for diagnostics</a>`;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 }
 
 function reloadAllLoaded() {
@@ -134,6 +159,11 @@ async function init() {
     sel.size = Math.min(cfg.sports.length, 5);
   } catch (e) {
     console.error("Config load failed", e);
+    document.getElementById("header-meta").innerHTML =
+      `<span class="error-inline">Config failed: ${escapeHtml(e.message)} — ` +
+      `<a href="/api/debug" target="_blank">open /api/debug</a></span>`;
+    hideLoading();
+    return;
   }
 
   // Tab buttons
