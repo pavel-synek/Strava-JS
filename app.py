@@ -14,7 +14,6 @@ from data_loader import (
     get_zone_summary,
     load_activities,
     load_activity_details,
-    load_streams,
 )
 from metrics import (
     compute_aerobic_efficiency,
@@ -442,9 +441,10 @@ def api_debug():
         except Exception as e:
             result["errors"].append(f"Token verify failed: {e}")
 
-        # Probe the export job result structure without downloading
+        # Probe federation token structure (fast — just shows metadata, no full download)
         try:
             import requests as req
+            from data_loader import _extract_gcs_token
             headers_kbc = {"X-StorageApi-Token": _KEBOOLA_STORAGE_TOKEN}
             job_resp = req.post(
                 f"{_KEBOOLA_STORAGE_URL}/v2/storage/tables/in.c-Garmin_full.activities/export-async",
@@ -454,27 +454,27 @@ def api_debug():
             job_resp.raise_for_status()
             job_id = job_resp.json()["id"]
             import time as _time
-            for _ in range(30):
+            for _ in range(60):
                 j = req.get(f"{_KEBOOLA_STORAGE_URL}/v2/storage/jobs/{job_id}", headers=headers_kbc, timeout=10).json()
                 if j["status"] in ("success", "error", "terminated"):
                     break
                 _time.sleep(1)
-            result["export_job_probe"] = {
-                "status": j.get("status"),
-                "results_keys": list(j.get("results", {}).keys()),
-                "file_keys": list((j.get("results", {}).get("file") or {}).keys()),
-            }
             if j.get("status") == "success":
-                file_id = j["results"]["file"].get("id")
-                if file_id:
-                    fm = req.get(f"{_KEBOOLA_STORAGE_URL}/v2/storage/files/{file_id}?federationToken=1", headers=headers_kbc, timeout=10).json()
-                    result["file_meta_keys"] = list(fm.keys())
-                    result["file_meta_url_present"] = "url" in fm
-                    result["file_meta_url_value"] = str(fm.get("url", ""))[:80]
-                    sa = fm.get("gcsCredentials") or fm.get("uploadParams", {}).get("credentials")
-                    result["gcs_credentials_type"] = sa.get("type") if isinstance(sa, dict) else str(type(sa))
-        except Exception as e:
-            result["errors"].append(f"Export probe failed: {traceback.format_exc()}")
+                file_id = j["results"]["file"]["id"]
+                fm = req.get(
+                    f"{_KEBOOLA_STORAGE_URL}/v2/storage/files/{file_id}?federationToken=1",
+                    headers=headers_kbc, timeout=10,
+                ).json()
+                gcs_creds = fm.get("gcsCredentials")
+                token = _extract_gcs_token(fm)
+                result["federation_token_probe"] = {
+                    "file_meta_top_keys": list(fm.keys()),
+                    "gcsCredentials_keys": list(gcs_creds.keys()) if isinstance(gcs_creds, dict) else repr(gcs_creds),
+                    "token_extracted": token is not None,
+                    "token_prefix": token[:12] + "…" if token else None,
+                }
+        except Exception:
+            result["errors"].append(f"Federation token probe failed: {traceback.format_exc()}")
 
     try:
         acts = load_activities()
