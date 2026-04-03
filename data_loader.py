@@ -128,7 +128,15 @@ def _fetch_keboola_table(table_id: str) -> io.StringIO:
 
     file_id = job["results"]["file"]["id"]
 
-    # 3. Get file metadata + federation token (gives GCP access_token on GCP stacks)
+    # 3a. Fetch table column names (sliced GCS exports are headerless)
+    table_meta = requests.get(
+        f"{_KEBOOLA_STORAGE_URL}/v2/storage/tables/{table_id}",
+        headers=kbc_headers,
+        timeout=10,
+    ).json()
+    column_names: list[str] = table_meta.get("columns", [])
+
+    # 3b. Get file metadata + federation token (gives GCP access_token on GCP stacks)
     file_meta = requests.get(
         f"{_KEBOOLA_STORAGE_URL}/v2/storage/files/{file_id}?federationToken=1",
         headers=kbc_headers,
@@ -173,20 +181,27 @@ def _fetch_keboola_table(table_id: str) -> io.StringIO:
             raise RuntimeError(f"Manifest had no entries: {raw[:500]}")
 
         chunks: list[str] = []
-        header: str | None = None
         for url in slice_urls:
-            text = _decompress(fetch(url)).decode("utf-8")
-            lines = text.splitlines()
-            if not lines:
-                continue
-            if header is None:
-                header = lines[0]
+            text = _decompress(fetch(url)).decode("utf-8").strip()
+            if text:
                 chunks.append(text)
-            else:
-                chunks.append("\n".join(lines[1:] if lines[0] == header else lines))
-        return io.StringIO("\n".join(chunks))
+        csv_data = "\n".join(chunks)
 
-    return io.StringIO(raw.decode("utf-8"))
+        # Sliced GCS exports are headerless — prepend column names from table metadata
+        if column_names:
+            header_row = ",".join(column_names)
+            return io.StringIO(header_row + "\n" + csv_data)
+        return io.StringIO(csv_data)
+
+    # Non-sliced single file — check if it already has a header row
+    text = raw.decode("utf-8")
+    if column_names:
+        first_line = text.split("\n", 1)[0].strip().strip('"')
+        # If the first line doesn't look like a known column name, prepend headers
+        if column_names and first_line not in column_names:
+            header_row = ",".join(column_names)
+            return io.StringIO(header_row + "\n" + text)
+    return io.StringIO(text)
 
 
 # ── BigQuery query helper ──────────────────────────────────────────────────────
