@@ -467,17 +467,12 @@ def api_debug():
             if j.get("status") == "success":
                 file_id = j["results"]["file"].get("id")
                 if file_id:
-                    fm = req.get(f"{_KEBOOLA_STORAGE_URL}/v2/storage/files/{file_id}", headers=headers_kbc, timeout=10).json()
+                    fm = req.get(f"{_KEBOOLA_STORAGE_URL}/v2/storage/files/{file_id}?federationToken=1", headers=headers_kbc, timeout=10).json()
                     result["file_meta_keys"] = list(fm.keys())
                     result["file_meta_url_present"] = "url" in fm
-                    result["file_meta_absPath_present"] = "absPath" in fm
-                    download_url = fm.get("url") or fm.get("absPath")
-                    if download_url:
-                        import gzip as _gzip
-                        raw = req.get(download_url, timeout=30).content
-                        if raw[:2] == b"\x1f\x8b":
-                            raw = _gzip.decompress(raw)
-                        result["download_first_300_bytes"] = raw[:300].decode("utf-8", errors="replace")
+                    result["file_meta_url_value"] = str(fm.get("url", ""))[:80]
+                    sa = fm.get("gcsCredentials") or fm.get("uploadParams", {}).get("credentials")
+                    result["gcs_credentials_type"] = sa.get("type") if isinstance(sa, dict) else str(type(sa))
         except Exception as e:
             result["errors"].append(f"Export probe failed: {traceback.format_exc()}")
 

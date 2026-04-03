@@ -31,37 +31,63 @@ def _decompress(content: bytes) -> bytes:
     return content
 
 
-def _fetch_url(url: str) -> bytes:
+def _http_get(url: str, gcs_token: str | None = None) -> bytes:
     import requests
-    resp = requests.get(url, timeout=180)
+    headers = {"Authorization": f"Bearer {gcs_token}"} if gcs_token else {}
+    resp = requests.get(url, headers=headers, timeout=180)
     resp.raise_for_status()
     return resp.content
+
+
+def _gs_to_https(gs_url: str) -> str:
+    """Convert gs://bucket/obj to https://storage.googleapis.com/download/... URL."""
+    import urllib.parse
+    path = gs_url[5:]          # strip 'gs://'
+    bucket, obj = path.split("/", 1)
+    return (
+        f"https://storage.googleapis.com/download/storage/v1/b/"
+        f"{bucket}/o/{urllib.parse.quote(obj, safe='')}?alt=media"
+    )
+
+
+def _get_gcs_token(credentials_info: dict) -> str:
+    """Exchange a service-account JSON for a short-lived Bearer token."""
+    from google.oauth2 import service_account
+    import google.auth.transport.requests as google_requests
+
+    creds = service_account.Credentials.from_service_account_info(
+        credentials_info,
+        scopes=["https://www.googleapis.com/auth/devstorage.read_only"],
+    )
+    creds.refresh(google_requests.Request())
+    return creds.token
 
 
 def _fetch_keboola_table(table_id: str) -> io.StringIO:
     import json
     import requests
 
-    headers = {"X-StorageApi-Token": _KEBOOLA_STORAGE_TOKEN}
+    kbc_headers = {"X-StorageApi-Token": _KEBOOLA_STORAGE_TOKEN}
 
+    # ── 1. Start async export ────────────────────────────────────────────────
     resp = requests.post(
         f"{_KEBOOLA_STORAGE_URL}/v2/storage/tables/{table_id}/export-async",
-        headers=headers,
+        headers=kbc_headers,
         timeout=30,
     )
     resp.raise_for_status()
     job_id = resp.json()["id"]
 
+    # ── 2. Poll for job completion ───────────────────────────────────────────
     for _ in range(180):
-        job_resp = requests.get(
+        job = requests.get(
             f"{_KEBOOLA_STORAGE_URL}/v2/storage/jobs/{job_id}",
-            headers=headers,
+            headers=kbc_headers,
             timeout=10,
-        )
-        job = job_resp.json()
+        ).json()
         if job["status"] == "success":
             break
-        elif job["status"] in ("error", "terminated"):
+        if job["status"] in ("error", "terminated"):
             raise RuntimeError(
                 f"Keboola export failed: {job.get('error', {}).get('message', 'unknown')}"
             )
@@ -71,59 +97,62 @@ def _fetch_keboola_table(table_id: str) -> io.StringIO:
 
     file_id = job["results"]["file"]["id"]
 
-    file_meta_resp = requests.get(
-        f"{_KEBOOLA_STORAGE_URL}/v2/storage/files/{file_id}",
-        headers=headers,
+    # ── 3. Fetch file metadata + GCS federation token ────────────────────────
+    file_meta = requests.get(
+        f"{_KEBOOLA_STORAGE_URL}/v2/storage/files/{file_id}?federationToken=1",
+        headers=kbc_headers,
         timeout=10,
-    )
-    file_meta_resp.raise_for_status()
-    file_meta = file_meta_resp.json()
+    ).json()
 
-    download_url = file_meta.get("url") or file_meta.get("absPath")
-    if not download_url:
+    # Extract GCS service-account credentials from the federation token response
+    gcs_token = None
+    sa_info = (
+        file_meta.get("gcsCredentials")
+        or file_meta.get("uploadParams", {}).get("credentials")
+    )
+    if sa_info and isinstance(sa_info, dict) and sa_info.get("type") == "service_account":
+        gcs_token = _get_gcs_token(sa_info)
+
+    # ── 4. Resolve the manifest/data URL ────────────────────────────────────
+    raw_url = file_meta.get("url") or file_meta.get("absPath")
+    if not raw_url:
         raise RuntimeError(
             f"No download URL in file metadata. Keys: {list(file_meta.keys())}"
         )
 
-    raw = _decompress(_fetch_url(download_url))
+    def fetch(url: str) -> bytes:
+        if url.startswith("gs://"):
+            return _http_get(_gs_to_https(url), gcs_token)
+        return _http_get(url)
 
-    # Keboola may export sliced tables: the downloaded file is a newline-delimited
-    # JSON manifest listing individual slice URLs rather than actual CSV data.
-    # Detect this by checking whether the first non-empty line is a JSON object.
+    raw = _decompress(fetch(raw_url))
+
+    # ── 5. Handle sliced manifest ────────────────────────────────────────────
+    # Keboola exports large tables as a JSON manifest listing gs:// slice paths.
     first_line = raw.split(b"\n", 1)[0].strip()
-    is_manifest = first_line.startswith(b"{") or first_line.startswith(b"[")
-
-    if is_manifest:
+    if first_line.startswith(b"{") or first_line.startswith(b"["):
         try:
             manifest = json.loads(raw)
-            # Format: {"entries": [{"url": "...", "mandatory": true}, ...]}
             entries = manifest if isinstance(manifest, list) else manifest.get("entries", [])
             slice_urls = [e["url"] for e in entries if e.get("url")]
         except Exception as exc:
-            raise RuntimeError(
-                f"Failed to parse slice manifest (first 200 bytes: {raw[:200]}): {exc}"
-            )
+            raise RuntimeError(f"Failed to parse manifest ({raw[:200]}): {exc}")
         if not slice_urls:
-            raise RuntimeError(f"Manifest had no entries. Content: {raw[:500]}")
+            raise RuntimeError(f"Manifest had no entries: {raw[:500]}")
 
-        chunks = []
-        header = None
+        chunks: list[str] = []
+        header: str | None = None
         for url in slice_urls:
-            chunk = _decompress(_fetch_url(url))
-            text = chunk.decode("utf-8")
+            text = _decompress(fetch(url)).decode("utf-8")
             lines = text.splitlines()
             if not lines:
                 continue
             if header is None:
-                # First slice contains the header
                 header = lines[0]
                 chunks.append(text)
             else:
-                # Subsequent slices may repeat the header — strip it
-                if lines[0] == header:
-                    chunks.append("\n".join(lines[1:]))
-                else:
-                    chunks.append(text)
+                # Skip repeated header rows from subsequent slices
+                chunks.append("\n".join(lines[1:] if lines[0] == header else lines))
         return io.StringIO("\n".join(chunks))
 
     return io.StringIO(raw.decode("utf-8"))
