@@ -56,13 +56,28 @@ def _fetch_keboola_table(table_id: str) -> io.StringIO:
         raise RuntimeError("Keboola export timed out after 180 seconds")
 
     file_info = job["results"]["file"]
-    download_url = file_info["url"]
+    file_id = file_info.get("id")
+
+    # The job result contains only the file ID; fetch the signed download URL separately
+    file_meta_resp = requests.get(
+        f"{_KEBOOLA_STORAGE_URL}/v2/storage/files/{file_id}",
+        headers=headers,
+        timeout=10,
+    )
+    file_meta_resp.raise_for_status()
+    file_meta = file_meta_resp.json()
+    download_url = file_meta.get("url") or file_meta.get("absPath")
+    if not download_url:
+        raise RuntimeError(
+            f"No download URL in file metadata. Keys present: {list(file_meta.keys())}"
+        )
 
     csv_resp = requests.get(download_url, timeout=180)
     csv_resp.raise_for_status()
 
     content = csv_resp.content
-    if file_info.get("name", "").endswith(".gz") or content[:2] == b"\x1f\x8b":
+    file_name = file_meta.get("name", file_info.get("name", ""))
+    if file_name.endswith(".gz") or content[:2] == b"\x1f\x8b":
         content = gzip.decompress(content)
 
     return io.StringIO(content.decode("utf-8"))

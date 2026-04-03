@@ -442,6 +442,38 @@ def api_debug():
         except Exception as e:
             result["errors"].append(f"Token verify failed: {e}")
 
+        # Probe the export job result structure without downloading
+        try:
+            import requests as req
+            headers_kbc = {"X-StorageApi-Token": _KEBOOLA_STORAGE_TOKEN}
+            job_resp = req.post(
+                f"{_KEBOOLA_STORAGE_URL}/v2/storage/tables/in.c-Garmin_full.activities/export-async",
+                headers=headers_kbc,
+                timeout=15,
+            )
+            job_resp.raise_for_status()
+            job_id = job_resp.json()["id"]
+            import time as _time
+            for _ in range(30):
+                j = req.get(f"{_KEBOOLA_STORAGE_URL}/v2/storage/jobs/{job_id}", headers=headers_kbc, timeout=10).json()
+                if j["status"] in ("success", "error", "terminated"):
+                    break
+                _time.sleep(1)
+            result["export_job_probe"] = {
+                "status": j.get("status"),
+                "results_keys": list(j.get("results", {}).keys()),
+                "file_keys": list((j.get("results", {}).get("file") or {}).keys()),
+            }
+            if j.get("status") == "success":
+                file_id = j["results"]["file"].get("id")
+                if file_id:
+                    fm = req.get(f"{_KEBOOLA_STORAGE_URL}/v2/storage/files/{file_id}", headers=headers_kbc, timeout=10).json()
+                    result["file_meta_keys"] = list(fm.keys())
+                    result["file_meta_url_present"] = "url" in fm
+                    result["file_meta_absPath_present"] = "absPath" in fm
+        except Exception as e:
+            result["errors"].append(f"Export probe failed: {traceback.format_exc()}")
+
     try:
         acts = load_activities()
         result["activities_preview"] = {
