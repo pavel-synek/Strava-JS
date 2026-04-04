@@ -19,6 +19,7 @@ _BQ_DATASET = "in_c_Garmin_full"
 _KEBOOLA_TABLE_IDS = {
     "activities.csv":       f"{_KEBOOLA_BUCKET}.activities",
     "activity_details.csv": f"{_KEBOOLA_BUCKET}.activity_details",
+    "streams.csv":          f"{_KEBOOLA_BUCKET}.streams",
 }
 
 _KEBOOLA_LOCAL_PATHS = {
@@ -303,12 +304,14 @@ def load_activity_details() -> pd.DataFrame:
 def get_zone_summary(zones: dict) -> pd.DataFrame:
     """
     Compute seconds per HR zone per activity via BigQuery.
-    Falls back to local streams.csv if running outside Vercel.
+    Falls back to downloading streams.csv via Keboola API on BigQuery failure.
     """
     if _KEBOOLA_STORAGE_TOKEN:
-        return _get_zone_summary_bq(zones)
+        try:
+            return _get_zone_summary_bq(zones)
+        except Exception:
+            pass
 
-    # Local fallback: read streams.csv
     streams = _load_streams_local()
     return _zone_summary_from_df(streams, zones)
 
@@ -349,10 +352,13 @@ def _get_zone_summary_bq(zones: dict) -> pd.DataFrame:
 def get_all_hr_drift() -> pd.DataFrame:
     """
     Compute early/late HR per activity via BigQuery.
-    Falls back to local streams.csv if running outside Vercel.
+    Falls back to downloading streams.csv via Keboola API on BigQuery failure.
     """
     if _KEBOOLA_STORAGE_TOKEN:
-        return _get_hr_drift_bq()
+        try:
+            return _get_hr_drift_bq()
+        except Exception:
+            pass
 
     streams = _load_streams_local()
     return _hr_drift_from_df(streams)
@@ -406,12 +412,7 @@ def _load_streams_local() -> pd.DataFrame:
         "distance": "float32",
         "grade_smooth": "float32",
     }
-    keboola_path = _KEBOOLA_LOCAL_PATHS["streams.csv"]
-    if os.path.exists(keboola_path):
-        path = keboola_path
-    else:
-        path = os.path.join(os.path.dirname(__file__), "..", "streams.csv")
-    df = pd.read_csv(path, usecols=cols, dtype=dtypes, low_memory=False)
+    df = _load_csv("streams.csv", usecols=lambda c: c in cols, dtype=dtypes, low_memory=False)
     if df["moving"].dtype == object:
         df["moving"] = df["moving"].map({"True": True, "False": False, True: True, False: False})
     df["heartrate_valid"] = df["heartrate"].notna() & (df["heartrate"] > 0)

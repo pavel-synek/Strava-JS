@@ -64,6 +64,8 @@ def parse_splits_metric(splits_json_str) -> pd.DataFrame | None:
 
 
 def compute_split_stats(acts: pd.DataFrame, details: pd.DataFrame) -> pd.DataFrame:
+    if "splits_metric" not in details.columns:
+        return pd.DataFrame()
     run_acts = acts[acts["sport_type"].isin(["Run", "TrailRun"])]
     merged = run_acts[["id", "start_date_local", "distance_km"]].merge(
         details[["id", "splits_metric"]], on="id", how="inner"
