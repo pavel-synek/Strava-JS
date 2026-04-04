@@ -525,8 +525,11 @@ _KEBOOLA_QUEUE_URL = _KEBOOLA_STORAGE_URL.replace("connection.", "queue.")
 _keboola_job_config_cache: dict = {}
 
 
+_KEBOOLA_JOB_TOKEN = os.environ.get("KEBOOLA_JOB_TOKEN") or _KEBOOLA_STORAGE_TOKEN
+
+
 def _keboola_headers():
-    return {"X-StorageApi-Token": _KEBOOLA_STORAGE_TOKEN or ""}
+    return {"X-StorageApi-Token": _KEBOOLA_JOB_TOKEN or ""}
 
 
 def _get_keboola_job_config():
