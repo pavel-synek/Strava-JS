@@ -1,8 +1,11 @@
+import json
+import math
 import traceback
 
 import numpy as np
 import pandas as pd
 from flask import Flask, jsonify, render_template, request
+from flask.json.provider import DefaultJSONProvider
 
 import os
 
@@ -26,7 +29,27 @@ from metrics import (
     make_daily_trimp,
 )
 
+def _sanitize(obj):
+    """Recursively replace NaN/Inf floats with None so JSON stays valid."""
+    if isinstance(obj, float) and not math.isfinite(obj):
+        return None
+    if isinstance(obj, np.floating) and not math.isfinite(obj):
+        return None
+    if isinstance(obj, dict):
+        return {k: _sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize(v) for v in obj]
+    return obj
+
+
+class _SafeJSONProvider(DefaultJSONProvider):
+    def dumps(self, obj, **kwargs):
+        return json.dumps(_sanitize(obj), **kwargs)
+
+
 app = Flask(__name__)
+app.json_provider_class = _SafeJSONProvider
+app.json = _SafeJSONProvider(app)
 
 
 def _parse_params():
@@ -187,6 +210,8 @@ def api_hr_zones():
 
     # Aerobic efficiency
     ae_weekly = compute_aerobic_efficiency(acts)
+    if not ae_weekly.empty:
+        ae_weekly = ae_weekly.dropna(subset=["week_start", "ae_mean", "ae_rolling"])
     ae_data = {
         "dates": ae_weekly["week_start"].tolist(),
         "ae": ae_weekly["ae_mean"].round(5).tolist(),
@@ -197,8 +222,8 @@ def api_hr_zones():
     hr_drift_df = get_all_hr_drift()
     drift_merged = hr_drift_df.merge(
         acts[["id", "start_date_local", "pace_min_per_km", "distance_km"]].rename(columns={"id": "activity_id"}),
-        on="activity_id", how="left",
-    ).dropna(subset=["early_hr", "late_hr"])
+        on="activity_id", how="inner",
+    ).dropna(subset=["early_hr", "late_hr", "start_date_local", "pace_min_per_km"])
     drift_data = {
         "early_hr": drift_merged["early_hr"].round(1).tolist(),
         "late_hr": drift_merged["late_hr"].round(1).tolist(),
@@ -272,6 +297,7 @@ def api_pacing():
     if not split_stats.empty:
         df = split_stats.dropna(subset=["split_diff"]).copy()
         df["rolling"] = df["split_diff"].rolling(20, min_periods=5).mean()
+        df = df.dropna(subset=["rolling"])
         splits_out = {
             "dates": df["date"].tolist(),
             "split_diff": df["split_diff"].tolist(),
@@ -284,6 +310,7 @@ def api_pacing():
     if not split_stats.empty:
         df2 = split_stats.dropna(subset=["pace_std"]).copy()
         df2["rolling"] = df2["pace_std"].rolling(20, min_periods=5).mean()
+        df2 = df2.dropna(subset=["rolling"])
         consistency_out = {
             "dates": df2["date"].tolist(),
             "pace_std": df2["pace_std"].tolist(),
