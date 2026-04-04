@@ -212,13 +212,28 @@ async function triggerKeboolaRun() {
   try {
     const res = await fetch("/api/keboola-run", { method: "POST" });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || res.status);
+    if (!res.ok) throw new Error(data.error || JSON.stringify(data));
     btn.textContent = "✓ Started";
     setTimeout(() => { btn.textContent = "▶ Sync"; btn.disabled = false; }, 3000);
   } catch (e) {
+    console.error("Keboola run error:", e.message);
     btn.textContent = "✗ Error";
     btn.title = e.message;
-    setTimeout(() => { btn.textContent = "▶ Sync"; btn.disabled = false; btn.title = "Run Keboola sync job"; }, 4000);
+    // Show inline error below button
+    let errEl = document.getElementById("keboola-run-error");
+    if (!errEl) {
+      errEl = document.createElement("span");
+      errEl.id = "keboola-run-error";
+      errEl.style.cssText = "color:#e74c3c;font-size:11px;max-width:300px;word-break:break-all;";
+      document.getElementById("keboola-bar").appendChild(errEl);
+    }
+    errEl.textContent = e.message;
+    setTimeout(() => {
+      btn.textContent = "▶ Sync";
+      btn.disabled = false;
+      btn.title = "Run Keboola sync job";
+      if (errEl) errEl.textContent = "";
+    }, 8000);
   }
 }
 
