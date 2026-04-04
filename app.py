@@ -586,13 +586,19 @@ def api_keboola_status():
 def api_keboola_run():
     try:
         cfg = _get_keboola_job_config()
+        body = {
+            "component": cfg["componentId"],
+            "config": cfg["configId"],
+            "mode": "run",
+        }
         r = requests.post(
             f"{_KEBOOLA_QUEUE_URL}/jobs",
-            json={"componentId": cfg["componentId"], "configId": cfg["configId"]},
-            headers={**_keboola_headers(), "Content-Type": "application/json"},
+            json=body,
+            headers=_keboola_headers(),
             timeout=10,
         )
-        r.raise_for_status()
+        if not r.ok:
+            return jsonify({"error": f"Keboola {r.status_code}: {r.text}"}), 500
         job = r.json()
         return jsonify({"job_id": job.get("id"), "status": job.get("status")})
     except Exception as e:
