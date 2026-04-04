@@ -541,10 +541,14 @@ def _get_keboola_job_config():
     )
     r.raise_for_status()
     job = r.json()
-    _keboola_job_config_cache = {
-        "componentId": job["componentId"],
-        "configId": job["configId"],
-    }
+    component_id = job.get("componentId") or job.get("component")
+    config_id = job.get("configId") or job.get("config")
+    if not component_id or not config_id:
+        raise ValueError(
+            f"Cannot extract componentId/configId from job response. "
+            f"Available keys: {list(job.keys())}"
+        )
+    _keboola_job_config_cache = {"componentId": component_id, "configId": config_id}
     return _keboola_job_config_cache
 
 
