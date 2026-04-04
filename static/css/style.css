@@ -28,7 +28,36 @@ header {
   gap: 24px;
 }
 header h1 { font-size: 20px; font-weight: 600; color: var(--accent); }
-#header-meta { color: var(--text-dim); font-size: 12px; }
+#header-meta { color: var(--text-dim); font-size: 12px; flex: 1; }
+
+#keboola-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+#last-update-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+#last-update-value { color: var(--text); }
+
+#keboola-run-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+#keboola-run-btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+#keboola-run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Settings bar */
 #settings-bar {

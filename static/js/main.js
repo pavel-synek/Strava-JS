@@ -183,6 +183,47 @@ async function init() {
   // Load first tab
   await loadTab("overview");
   hideLoading();
+
+  // Keboola status (non-blocking)
+  loadKeboolaStatus();
 }
+
+// ── Keboola sync ─────────────────────────────────────────────────────────────
+async function loadKeboolaStatus() {
+  try {
+    const res = await fetch("/api/keboola-status");
+    if (!res.ok) return;
+    const data = await res.json();
+    const el = document.getElementById("last-update-value");
+    if (!el) return;
+    if (data.last_run) {
+      const d = new Date(data.last_run);
+      el.textContent = d.toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" });
+    } else {
+      el.textContent = "—";
+    }
+  } catch (_) {}
+}
+
+async function triggerKeboolaRun() {
+  const btn = document.getElementById("keboola-run-btn");
+  btn.disabled = true;
+  btn.textContent = "Running…";
+  try {
+    const res = await fetch("/api/keboola-run", { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.status);
+    btn.textContent = "✓ Started";
+    setTimeout(() => { btn.textContent = "▶ Sync"; btn.disabled = false; }, 3000);
+  } catch (e) {
+    btn.textContent = "✗ Error";
+    btn.title = e.message;
+    setTimeout(() => { btn.textContent = "▶ Sync"; btn.disabled = false; btn.title = "Run Keboola sync job"; }, 4000);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("keboola-run-btn")?.addEventListener("click", triggerKeboolaRun);
+});
 
 document.addEventListener("DOMContentLoaded", init);

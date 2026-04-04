@@ -4,6 +4,7 @@ import traceback
 
 import numpy as np
 import pandas as pd
+import requests
 from flask import Flask, jsonify, render_template, request
 from flask.json.provider import DefaultJSONProvider
 
@@ -515,6 +516,83 @@ def api_debug():
         result["errors"].append(f"load_activities failed: {traceback.format_exc()}")
 
     return jsonify(result)
+
+
+# ── Keboola Job API ───────────────────────────────────────────────────────────
+
+_KEBOOLA_REFERENCE_JOB_ID = "42285798"
+_KEBOOLA_QUEUE_URL = _KEBOOLA_STORAGE_URL.replace("connection.", "queue.")
+_keboola_job_config_cache: dict = {}
+
+
+def _keboola_headers():
+    return {"X-StorageApi-Token": _KEBOOLA_STORAGE_TOKEN or ""}
+
+
+def _get_keboola_job_config():
+    """Fetch componentId + configId from the reference job (cached)."""
+    global _keboola_job_config_cache
+    if _keboola_job_config_cache:
+        return _keboola_job_config_cache
+    r = requests.get(
+        f"{_KEBOOLA_QUEUE_URL}/jobs/{_KEBOOLA_REFERENCE_JOB_ID}",
+        headers=_keboola_headers(),
+        timeout=10,
+    )
+    r.raise_for_status()
+    job = r.json()
+    _keboola_job_config_cache = {
+        "componentId": job["componentId"],
+        "configId": job["configId"],
+    }
+    return _keboola_job_config_cache
+
+
+@app.route("/api/keboola-status")
+def api_keboola_status():
+    try:
+        cfg = _get_keboola_job_config()
+        r = requests.get(
+            f"{_KEBOOLA_QUEUE_URL}/jobs",
+            params={
+                "componentId": cfg["componentId"],
+                "configId": cfg["configId"],
+                "sortBy": "createdTime",
+                "sortOrder": "desc",
+                "limit": 1,
+            },
+            headers=_keboola_headers(),
+            timeout=10,
+        )
+        r.raise_for_status()
+        jobs = r.json()
+        if not jobs:
+            return jsonify({"last_run": None, "status": None})
+        job = jobs[0]
+        return jsonify({
+            "last_run": job.get("endTime") or job.get("startTime") or job.get("createdTime"),
+            "status": job.get("status"),
+            "job_id": job.get("id"),
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/keboola-run", methods=["POST"])
+def api_keboola_run():
+    try:
+        cfg = _get_keboola_job_config()
+        r = requests.post(
+            f"{_KEBOOLA_QUEUE_URL}/jobs",
+            json={"componentId": cfg["componentId"], "configId": cfg["configId"]},
+            headers={**_keboola_headers(), "Content-Type": "application/json"},
+            timeout=10,
+        )
+        r.raise_for_status()
+        job = r.json()
+        return jsonify({"job_id": job.get("id"), "status": job.get("status")})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # ── Error handler ─────────────────────────────────────────────────────────────
