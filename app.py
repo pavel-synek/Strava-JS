@@ -401,6 +401,12 @@ def api_periodization():
         yoy_mask &= acts_all["workout_type"] == 1
     df = acts_all[yoy_mask].copy()
     df["month_num"] = df["start_date_local"].dt.month
+    # Elevation-adjusted speed (same formula as AE metric, factor=7)
+    elev = df["total_elevation_gain"].fillna(0).clip(lower=0)
+    eff_dist_m = df["distance_km"] * 1000 + elev * 7
+    df["adj_speed"] = eff_dist_m / df["moving_time"]          # m/s
+    df["gap_pace"] = (1000 / df["adj_speed"] / 60).where(df["adj_speed"] > 0)  # min/km
+
     yoy = df.groupby(["year", "month_num"])["distance_km"].sum().reset_index()
     years = sorted(yoy["year"].unique().tolist())
     month_names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
@@ -410,6 +416,33 @@ def api_periodization():
             str(yr): yoy[yoy["year"] == yr].set_index("month_num")["distance_km"]
                 .reindex(range(1, 13), fill_value=0).round(1).tolist()
             for yr in years
+        },
+    }
+
+    # YoY — Aerobic Efficiency (requires HR data)
+    df_ae = df[df["average_heartrate"].notna() & (df["average_heartrate"] > 0) & df["adj_speed"].notna()].copy()
+    df_ae["ae"] = df_ae["adj_speed"] / df_ae["average_heartrate"]
+    yoy_ae_grouped = df_ae.groupby(["year", "month_num"])["ae"].mean().reset_index()
+    yoy_ae_years = sorted(yoy_ae_grouped["year"].unique().tolist())
+    yoy_ae_data = {
+        "months": month_names,
+        "years": {
+            str(yr): yoy_ae_grouped[yoy_ae_grouped["year"] == yr].set_index("month_num")["ae"]
+                .reindex(range(1, 13)).round(5).tolist()
+            for yr in yoy_ae_years
+        },
+    }
+
+    # YoY — GAP Pace (min/km, lower = faster)
+    df_gap = df[df["gap_pace"].notna() & (df["gap_pace"] > 0) & (df["gap_pace"] < 30)].copy()
+    yoy_gap_grouped = df_gap.groupby(["year", "month_num"])["gap_pace"].mean().reset_index()
+    yoy_gap_years = sorted(yoy_gap_grouped["year"].unique().tolist())
+    yoy_gap_data = {
+        "months": month_names,
+        "years": {
+            str(yr): yoy_gap_grouped[yoy_gap_grouped["year"] == yr].set_index("month_num")["gap_pace"]
+                .reindex(range(1, 13)).round(2).tolist()
+            for yr in yoy_gap_years
         },
     }
 
@@ -461,6 +494,8 @@ def api_periodization():
     return jsonify({
         "weekly": weekly_data,
         "yoy": yoy_data,
+        "yoy_ae": yoy_ae_data,
+        "yoy_gap": yoy_gap_data,
         "monotony": monotony_data,
         "intensity": intensity_data,
     })

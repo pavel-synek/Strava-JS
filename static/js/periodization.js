@@ -23,9 +23,9 @@ function renderPeriodization(data) {
   }
 
   // YoY
+  const colors = ["#4a90d9", "#27ae60", "#f1c40f", "#e67e22", "#e74c3c", "#9b59b6", "#1abc9c"];
   const yoy = data.yoy;
   if (yoy && yoy.years) {
-    const colors = ["#4a90d9", "#27ae60", "#f1c40f", "#e67e22", "#e74c3c", "#9b59b6", "#1abc9c"];
     const yearKeys = Object.keys(yoy.years).sort();
     const traces = yearKeys.map((yr, i) => ({
       type: "scatter",
@@ -43,6 +43,56 @@ function renderPeriodization(data) {
       yaxis: { ...PLOTLY_LAYOUT.yaxis, title: "Distance (km)" },
       legend: { orientation: "h", y: 1.12, bgcolor: "transparent" },
     }, PLOTLY_CONFIG);
+  }
+
+  // YoY — Aerobic Efficiency
+  const yoyAe = data.yoy_ae;
+  if (yoyAe && yoyAe.years) {
+    const aeYearKeys = Object.keys(yoyAe.years).sort();
+    const aeTraces = aeYearKeys.map((yr, i) => ({
+      type: "scatter",
+      x: yoyAe.months, y: yoyAe.years[yr],
+      mode: "lines+markers",
+      name: yr,
+      connectgaps: false,
+      line: { color: colors[i % colors.length], width: 1.5 },
+      marker: { size: 5 },
+      hovertemplate: `${yr} %{x}: %{y:.5f}<extra></extra>`,
+    }));
+    Plotly.newPlot("chart-yoy-ae", aeTraces, {
+      ...PLOTLY_LAYOUT,
+      height: 300,
+      xaxis: { ...PLOTLY_LAYOUT.xaxis, type: "category" },
+      yaxis: { ...PLOTLY_LAYOUT.yaxis, title: "Adj. Speed / HR" },
+      legend: { orientation: "h", y: 1.12, bgcolor: "transparent" },
+    }, PLOTLY_CONFIG);
+  } else {
+    document.getElementById("chart-yoy-ae").innerHTML = `<p class="caption" style="padding:20px">No HR data available.</p>`;
+  }
+
+  // YoY — GAP Pace
+  const yoyGap = data.yoy_gap;
+  if (yoyGap && yoyGap.years) {
+    const gapYearKeys = Object.keys(yoyGap.years).sort();
+    const gapTraces = gapYearKeys.map((yr, i) => ({
+      type: "scatter",
+      x: yoyGap.months, y: yoyGap.years[yr],
+      mode: "lines+markers",
+      name: yr,
+      connectgaps: false,
+      line: { color: colors[i % colors.length], width: 1.5 },
+      marker: { size: 5 },
+      hovertemplate: `${yr} %{x}: %{y:.2f} min/km<extra></extra>`,
+    }));
+    Plotly.newPlot("chart-yoy-gap", gapTraces, {
+      ...PLOTLY_LAYOUT,
+      height: 300,
+      xaxis: { ...PLOTLY_LAYOUT.xaxis, type: "category" },
+      yaxis: { ...PLOTLY_LAYOUT.yaxis, title: "GAP (min/km)", autorange: "reversed" },
+      legend: { orientation: "h", y: 1.12, bgcolor: "transparent" },
+    }, PLOTLY_CONFIG);
+  } else {
+    document.getElementById("chart-yoy-gap").innerHTML = `<p class="caption" style="padding:20px">No pace data available.</p>`;
   }
 
   // Monotony
