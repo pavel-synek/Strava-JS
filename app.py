@@ -393,8 +393,13 @@ def api_periodization():
         "rolling": weekly["rolling_4w"].round(1).tolist(),
     }
 
-    # Year-over-year
-    df = acts.copy()
+    # Year-over-year — always uses full history (date filter ignored intentionally)
+    races_only = request.args.get("races_only", "false").lower() == "true"
+    acts_all = load_activities()
+    yoy_mask = acts_all["sport_type"].isin(["Run", "TrailRun", "VirtualRun"])
+    if races_only:
+        yoy_mask &= acts_all["workout_type"] == 1
+    df = acts_all[yoy_mask].copy()
     df["month_num"] = df["start_date_local"].dt.month
     yoy = df.groupby(["year", "month_num"])["distance_km"].sum().reset_index()
     years = sorted(yoy["year"].unique().tolist())

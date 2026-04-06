@@ -166,7 +166,12 @@ async function init() {
       const today = new Date();
       const todayStr = toISODate(today);
       let startStr;
-      if (btn.dataset.preset === "ytd") {
+      if (btn.dataset.preset === "all") {
+        document.getElementById("date-start").value = "";
+        document.getElementById("date-end").value = "";
+        reloadAllLoaded();
+        return;
+      } else if (btn.dataset.preset === "ytd") {
         startStr = `${today.getFullYear()}-01-01`;
       } else {
         const days = parseInt(btn.dataset.days, 10);
