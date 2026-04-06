@@ -24,7 +24,6 @@ function renderPeriodization(data) {
 
   // YoY
   const yoy = data.yoy;
-  console.log("[YoY debug]", yoy?._debug);
   if (yoy && yoy.years) {
     const colors = ["#4a90d9", "#27ae60", "#f1c40f", "#e67e22", "#e74c3c", "#9b59b6", "#1abc9c"];
     const yearKeys = Object.keys(yoy.years).sort();
@@ -40,6 +39,7 @@ function renderPeriodization(data) {
     Plotly.newPlot("chart-yoy", traces, {
       ...PLOTLY_LAYOUT,
       height: 300,
+      xaxis: { ...PLOTLY_LAYOUT.xaxis, type: "category" },
       yaxis: { ...PLOTLY_LAYOUT.yaxis, title: "Distance (km)" },
       legend: { orientation: "h", y: 1.12, bgcolor: "transparent" },
     }, PLOTLY_CONFIG);
