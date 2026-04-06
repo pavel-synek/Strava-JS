@@ -7,11 +7,11 @@ function renderOverview(data) {
   document.getElementById("kpi-row").innerHTML =
     kpiCard("Activities", k.activities.toLocaleString(), null, "") +
     kpiCard("Distance", `${k.distance_km.toLocaleString()} km`,
-      `${kmDelta >= 0 ? "+" : ""}${kmDelta.toFixed(0)} km vs prev year`, kmDelta >= 0 ? "pos" : "neg") +
+      `${kmDelta >= 0 ? "+" : ""}${kmDelta.toFixed(0)} km ${k.prev_label}`, kmDelta >= 0 ? "pos" : "neg") +
     kpiCard("Elevation", `${k.elevation_m.toLocaleString()} m`,
-      `${elevDelta >= 0 ? "+" : ""}${elevDelta.toFixed(0)} m vs prev year`, elevDelta >= 0 ? "pos" : "neg") +
+      `${elevDelta >= 0 ? "+" : ""}${elevDelta.toFixed(0)} m ${k.prev_label}`, elevDelta >= 0 ? "pos" : "neg") +
     kpiCard("Moving time", `${k.hours.toLocaleString()} h`,
-      `${hoursDelta >= 0 ? "+" : ""}${hoursDelta.toFixed(0)} h vs prev year`, hoursDelta >= 0 ? "pos" : "neg");
+      `${hoursDelta >= 0 ? "+" : ""}${hoursDelta.toFixed(0)} h ${k.prev_label}`, hoursDelta >= 0 ? "pos" : "neg");
 
   // Heatmap
   const hm = data.heatmap;

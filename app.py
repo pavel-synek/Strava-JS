@@ -106,8 +106,38 @@ def api_overview():
     acts, zones, max_hr, resting_hr = _parse_params()
     acts_all = load_activities()
 
-    now = pd.Timestamp.now(tz="Europe/Prague")
-    prev_acts = acts_all[acts_all["start_date_local"] < now - pd.DateOffset(years=1)]
+    date_start = request.args.get("date_start")
+    date_end = request.args.get("date_end")
+    races_only = request.args.get("races_only", "false").lower() == "true"
+
+    # Compute previous period window
+    if date_start and date_end:
+        ds = pd.to_datetime(date_start).date()
+        de = pd.to_datetime(date_end).date()
+        duration = (de - ds).days + 1
+        prev_end = ds - pd.Timedelta(days=1)
+        prev_start = ds - pd.Timedelta(days=duration)
+        prev_label = f"vs prev {duration}d"
+    elif date_start:
+        ds = pd.to_datetime(date_start).date()
+        today = pd.Timestamp.now(tz="Europe/Prague").date()
+        duration = (today - ds).days + 1
+        prev_end = ds - pd.Timedelta(days=1)
+        prev_start = ds - pd.Timedelta(days=duration)
+        prev_label = f"vs prev {duration}d"
+    else:
+        now = pd.Timestamp.now(tz="Europe/Prague")
+        prev_start = pd.date_range(start=f"{now.year - 1}-01-01", periods=1)[0].date()
+        prev_end = (now - pd.DateOffset(years=1)).date()
+        prev_label = "vs prev year"
+
+    # Filter acts_all for previous period with same sport/races_only filters
+    prev_mask = acts_all["sport_type"].isin(["Run", "TrailRun", "VirtualRun"])
+    prev_mask &= acts_all["start_date_local"].dt.date >= prev_start
+    prev_mask &= acts_all["start_date_local"].dt.date <= prev_end
+    prev_acts = acts_all[prev_mask].copy()
+    if races_only:
+        prev_acts = prev_acts[prev_acts["workout_type"] == 1].copy()
 
     # KPIs
     kpis = {
@@ -118,6 +148,7 @@ def api_overview():
         "prev_distance_km": round(float(prev_acts["distance_km"].sum()), 1),
         "prev_elevation_m": round(float(prev_acts["total_elevation_gain"].sum()), 0),
         "prev_hours": round(float(prev_acts["moving_time"].sum() / 3600), 1),
+        "prev_label": prev_label,
     }
 
     # Weekly heatmap
