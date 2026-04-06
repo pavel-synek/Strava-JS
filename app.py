@@ -396,6 +396,7 @@ def api_periodization():
     # Year-over-year — always uses full history (date filter ignored intentionally)
     races_only = request.args.get("races_only", "false").lower() == "true"
     acts_all = load_activities()
+    sport_counts = acts_all["sport_type"].value_counts().head(10).to_dict()
     yoy_mask = acts_all["sport_type"].isin(["Run", "TrailRun", "VirtualRun"])
     if races_only:
         yoy_mask &= acts_all["workout_type"] == 1
@@ -410,6 +411,12 @@ def api_periodization():
             str(yr): yoy[yoy["year"] == yr].set_index("month_num")["distance_km"]
                 .reindex(range(1, 13), fill_value=0).round(1).tolist()
             for yr in years
+        },
+        "_debug": {
+            "total_rows": int(len(acts_all)),
+            "running_rows": int(len(df)),
+            "years_found": years,
+            "sport_counts": {str(k): int(v) for k, v in sport_counts.items()},
         },
     }
 
