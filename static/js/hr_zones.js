@@ -56,7 +56,7 @@ function renderHRZones(data) {
     ], {
       ...PLOTLY_LAYOUT,
       height: 320,
-      yaxis: { ...PLOTLY_LAYOUT.yaxis, title: "Speed / HR" },
+      yaxis: { ...PLOTLY_LAYOUT.yaxis, title: "Elev-adjusted Speed / HR" },
       legend: { orientation: "h", y: 1.12, bgcolor: "transparent" },
     }, PLOTLY_CONFIG);
   } else {

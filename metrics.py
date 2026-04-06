@@ -46,7 +46,11 @@ def compute_aerobic_efficiency(acts: pd.DataFrame) -> pd.DataFrame:
         acts["average_speed"].notna() & (acts["average_speed"] > 0)
     )
     df = acts[mask].copy()
-    df["ae"] = df["average_speed"] / df["average_heartrate"]
+    # Elevation-adjusted speed: each metre of ascent ≈ 7 m of flat equivalent (Minetti)
+    elev = df["total_elevation_gain"].fillna(0).clip(lower=0)
+    effective_distance_m = df["distance_km"] * 1000 + elev * 7
+    adjusted_speed = effective_distance_m / df["moving_time"]  # m/s, same units as average_speed
+    df["ae"] = adjusted_speed / df["average_heartrate"]
     weekly = df.groupby("week").agg(ae_mean=("ae", "mean"), distance_km=("distance_km", "sum")).reset_index()
     weekly["ae_rolling"] = weekly["ae_mean"].rolling(4, min_periods=1).mean()
     weekly["week_start"] = weekly["week"].dt.start_time.dt.strftime("%Y-%m-%d")
