@@ -55,22 +55,25 @@ app.json = _SafeJSONProvider(app)
 
 def _parse_params():
     acts_all = load_activities()
-    max_hr = float(request.args.get("max_hr", default_max_hr(acts_all)))
-    resting_hr = float(request.args.get("resting_hr", 50))
+    max_hr = float(default_max_hr(acts_all))
+    resting_hr = 50.0
     zone_model = request.args.get("zone_model", "5zone")
-    sports = request.args.getlist("sports") or ["Run", "TrailRun"]
+    races_only = request.args.get("races_only", "false").lower() == "true"
     date_start = request.args.get("date_start")
     date_end = request.args.get("date_end")
 
-    mask = pd.Series(True, index=acts_all.index)
-    if sports:
-        mask &= acts_all["sport_type"].isin(sports)
+    # Always filter to running sport types
+    mask = acts_all["sport_type"].isin(["Run", "TrailRun", "VirtualRun"])
     if date_start:
         mask &= acts_all["start_date_local"].dt.date >= pd.to_datetime(date_start).date()
     if date_end:
         mask &= acts_all["start_date_local"].dt.date <= pd.to_datetime(date_end).date()
 
     acts = acts_all[mask].copy()
+
+    if races_only:
+        acts = acts[acts["workout_type"] == 1].copy()
+
     zones = compute_hr_zones(max_hr, zone_model)
     return acts, zones, max_hr, resting_hr
 

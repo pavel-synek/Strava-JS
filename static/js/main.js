@@ -18,27 +18,22 @@ let currentParams = {};
 
 // ── Params ────────────────────────────────────────────────────────────────────
 function getParams() {
-  const sports = Array.from(document.getElementById("sports-select").selectedOptions).map(o => o.value);
   return {
-    max_hr: document.getElementById("max-hr").value,
-    resting_hr: document.getElementById("resting-hr").value,
     zone_model: document.getElementById("zone-model").value,
     date_start: document.getElementById("date-start").value,
     date_end: document.getElementById("date-end").value,
-    sports,
+    races_only: document.getElementById("races-only")?.checked || false,
     window_days: document.getElementById("zone-window")?.value || 90,
   };
 }
 
 function buildQuery(params) {
   const p = new URLSearchParams();
-  p.set("max_hr", params.max_hr);
-  p.set("resting_hr", params.resting_hr);
   p.set("zone_model", params.zone_model);
   if (params.date_start) p.set("date_start", params.date_start);
   if (params.date_end) p.set("date_end", params.date_end);
   if (params.window_days) p.set("window_days", params.window_days);
-  (params.sports || []).forEach(s => p.append("sports", s));
+  if (params.races_only) p.set("races_only", "true");
   return p.toString();
 }
 
@@ -141,22 +136,10 @@ async function init() {
   showLoading("Initialising…");
   try {
     const cfg = await fetchAPI("config", {});
-    document.getElementById("max-hr").value = cfg.max_hr;
     document.getElementById("date-start").value = cfg.date_min;
     document.getElementById("date-end").value = cfg.date_max;
     document.getElementById("header-meta").textContent =
       `${cfg.total_activities.toLocaleString()} activities · ${cfg.date_min} → ${cfg.date_max}`;
-
-    const sel = document.getElementById("sports-select");
-    cfg.sports.forEach(s => {
-      const opt = document.createElement("option");
-      opt.value = s;
-      opt.textContent = s;
-      opt.selected = ["Run", "TrailRun"].includes(s);
-      sel.appendChild(opt);
-    });
-    // Expand multi-select to show all options
-    sel.size = Math.min(cfg.sports.length, 5);
   } catch (e) {
     console.error("Config load failed", e);
     document.getElementById("header-meta").innerHTML =
@@ -173,6 +156,29 @@ async function init() {
 
   // Apply button
   document.getElementById("apply-btn").addEventListener("click", reloadAllLoaded);
+
+  // Preset date range buttons
+  function toISODate(d) {
+    return d.toISOString().slice(0, 10);
+  }
+  document.querySelectorAll(".preset-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const today = new Date();
+      const todayStr = toISODate(today);
+      let startStr;
+      if (btn.dataset.preset === "ytd") {
+        startStr = `${today.getFullYear()}-01-01`;
+      } else {
+        const days = parseInt(btn.dataset.days, 10);
+        const start = new Date(today);
+        start.setDate(today.getDate() - days);
+        startStr = toISODate(start);
+      }
+      document.getElementById("date-start").value = startStr;
+      document.getElementById("date-end").value = todayStr;
+      reloadAllLoaded();
+    });
+  });
 
   // Zone window change triggers HR zone reload
   document.getElementById("zone-window")?.addEventListener("change", () => {

@@ -19,6 +19,16 @@
 
   <!-- Settings bar -->
   <div id="settings-bar">
+    <div class="setting-group preset-group">
+      <label>Quick range</label>
+      <div id="preset-buttons">
+        <button class="preset-btn" data-days="7">Last 7 days</button>
+        <button class="preset-btn" data-days="28">Last 4 weeks</button>
+        <button class="preset-btn" data-days="180">6 months</button>
+        <button class="preset-btn" data-days="365">Last 12 months</button>
+        <button class="preset-btn" data-preset="ytd">This year to date</button>
+      </div>
+    </div>
     <div class="setting-group">
       <label>From</label>
       <input type="date" id="date-start" />
@@ -28,16 +38,10 @@
       <input type="date" id="date-end" />
     </div>
     <div class="setting-group">
-      <label>Sports</label>
-      <select id="sports-select" multiple size="1"></select>
-    </div>
-    <div class="setting-group">
-      <label>Max HR</label>
-      <input type="number" id="max-hr" min="150" max="220" value="185" />
-    </div>
-    <div class="setting-group">
-      <label>Resting HR</label>
-      <input type="number" id="resting-hr" min="30" max="80" value="50" />
+      <label class="checkbox-label">
+        <input type="checkbox" id="races-only" />
+        Races Only
+      </label>
     </div>
     <div class="setting-group">
       <label>Zone model</label>
