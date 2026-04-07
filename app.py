@@ -96,6 +96,7 @@ def api_config():
         "date_max": str(acts["start_date_local"].dt.date.max()),
         "sports": sorted(acts["sport_type"].dropna().unique().tolist()),
         "total_activities": len(acts),
+        "render_api_key": os.environ.get("RENDER_API_KEY", ""),
     })
 
 
