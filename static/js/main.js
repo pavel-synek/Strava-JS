@@ -136,7 +136,6 @@ async function init() {
   showLoading("Initialising…");
   try {
     const cfg = await fetchAPI("config", {});
-    window._renderApiKey = cfg.render_api_key || "";
     document.getElementById("date-start").value = cfg.date_min;
     document.getElementById("date-end").value = cfg.date_max;
     document.getElementById("header-meta").textContent =
@@ -255,10 +254,7 @@ async function triggerHRSync() {
   btn.disabled = true;
   btn.textContent = "Waking…";
   try {
-    const res = await fetch("https://render-garmin.onrender.com/sync/heart-rate", {
-      method: "POST",
-      headers: { "x-api-key": window._renderApiKey || "" },
-    });
+    const res = await fetch("/api/hr-sync", { method: "POST" });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || JSON.stringify(data));
     btn.textContent = data.status === "started" ? "✓ Running" : "✓ Done";

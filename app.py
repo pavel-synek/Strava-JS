@@ -96,7 +96,6 @@ def api_config():
         "date_max": str(acts["start_date_local"].dt.date.max()),
         "sports": sorted(acts["sport_type"].dropna().unique().tolist()),
         "total_activities": len(acts),
-        "render_api_key": os.environ.get("RENDER_API_KEY", ""),
     })
 
 
@@ -656,6 +655,20 @@ def api_keboola_status():
             "status": job.get("status"),
             "job_id": job.get("id"),
         })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/hr-sync", methods=["POST"])
+def api_hr_sync():
+    api_key = os.environ.get("RENDER_API_KEY", "")
+    try:
+        r = requests.post(
+            "https://render-garmin.onrender.com/sync/heart-rate",
+            headers={"x-api-key": api_key},
+            timeout=15,
+        )
+        return jsonify(r.json()), r.status_code
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
