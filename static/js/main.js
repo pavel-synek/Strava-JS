@@ -248,28 +248,8 @@ async function triggerKeboolaRun() {
   }
 }
 
-// ── Render HR sync ────────────────────────────────────────────────────────────
-async function triggerHRSync() {
-  const btn = document.getElementById("hr-sync-btn");
-  btn.disabled = true;
-  btn.textContent = "Waking…";
-  try {
-    const res = await fetch("/api/hr-sync", { method: "POST" });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || JSON.stringify(data));
-    btn.textContent = data.status === "started" ? "✓ Running" : "✓ Done";
-    setTimeout(() => { btn.textContent = "▶ Sync HR"; btn.disabled = false; }, 5000);
-  } catch (e) {
-    console.error("HR sync error:", e.message);
-    btn.textContent = "✗ Error";
-    btn.title = e.message;
-    setTimeout(() => { btn.textContent = "▶ Sync HR"; btn.disabled = false; btn.title = "Sync heart rate from Garmin"; }, 8000);
-  }
-}
-
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("keboola-run-btn")?.addEventListener("click", triggerKeboolaRun);
-  document.getElementById("hr-sync-btn")?.addEventListener("click", triggerHRSync);
 });
 
 document.addEventListener("DOMContentLoaded", init);

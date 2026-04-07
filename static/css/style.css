@@ -58,20 +58,7 @@ header h1 { font-size: 20px; font-weight: 600; color: var(--accent); }
 }
 #keboola-run-btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
 #keboola-run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-#hr-sync-btn {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  color: #e74c3c;
-  padding: 6px 14px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s, border-color 0.15s;
-}
-#hr-sync-btn:hover { background: #e74c3c; color: #fff; border-color: #e74c3c; }
-#hr-sync-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
 
 /* Settings bar */
 #settings-bar {

@@ -3,7 +3,9 @@ import numpy as np
 import pandas as pd
 
 
-def compute_hr_zones(max_hr: float, model: str = "5zone") -> dict:
+def compute_hr_zones(max_hr: float, model: str = "5zone", resting_hr: float = 45.0) -> dict:
+    """Karvonen method: target HR = (HR_reserve × intensity%) + resting_hr"""
+    hr_reserve = max_hr - resting_hr
     if model == "3zone":
         boundaries = {"Easy": (0.0, 0.70), "Moderate": (0.70, 0.85), "Hard": (0.85, 1.01)}
     else:
@@ -11,7 +13,7 @@ def compute_hr_zones(max_hr: float, model: str = "5zone") -> dict:
             "Z1": (0.0, 0.60), "Z2": (0.60, 0.70), "Z3": (0.70, 0.80),
             "Z4": (0.80, 0.90), "Z5": (0.90, 1.01),
         }
-    return {name: (lo * max_hr, hi * max_hr) for name, (lo, hi) in boundaries.items()}
+    return {name: (lo * hr_reserve + resting_hr, hi * hr_reserve + resting_hr) for name, (lo, hi) in boundaries.items()}
 
 
 def compute_trimp(acts: pd.DataFrame, resting_hr: float, max_hr: float) -> pd.Series:

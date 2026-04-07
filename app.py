@@ -53,10 +53,13 @@ app.json_provider_class = _SafeJSONProvider
 app.json = _SafeJSONProvider(app)
 
 
+RESTING_HR = 45.0
+MAX_HR = 179.0  # Karvonen: 220 - age (born 1985, age 41)
+
 def _parse_params():
     acts_all = load_activities()
-    max_hr = float(default_max_hr(acts_all))
-    resting_hr = 50.0
+    max_hr = MAX_HR
+    resting_hr = RESTING_HR
     zone_model = request.args.get("zone_model", "5zone")
     races_only = request.args.get("races_only", "false").lower() == "true"
     date_start = request.args.get("date_start")
@@ -74,7 +77,7 @@ def _parse_params():
     if races_only:
         acts = acts[acts["workout_type"] == 1].copy()
 
-    zones = compute_hr_zones(max_hr, zone_model)
+    zones = compute_hr_zones(max_hr, zone_model, resting_hr)
     return acts, zones, max_hr, resting_hr
 
 
@@ -211,13 +214,14 @@ def api_hr_zones():
     acts, zones, max_hr, resting_hr = _parse_params()
     window_days = int(request.args.get("window_days", 90))
 
-    # Zone definitions
+    # Zone definitions (Karvonen — % of HR reserve)
+    hr_reserve = max_hr - resting_hr
     zone_defs = [
         {
             "name": name,
             "min_bpm": round(lo, 0),
             "max_bpm": round(min(hi, max_hr), 0),
-            "pct": f"{lo/max_hr*100:.0f}–{min(hi/max_hr*100, 100):.0f}%",
+            "pct": f"{(lo - resting_hr) / hr_reserve * 100:.0f}–{min((hi - resting_hr) / hr_reserve * 100, 100):.0f}% HRR",
         }
         for name, (lo, hi) in zones.items()
     ]
@@ -658,19 +662,6 @@ def api_keboola_status():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
-@app.route("/api/hr-sync", methods=["POST"])
-def api_hr_sync():
-    api_key = os.environ.get("RENDER_API_KEY", "")
-    try:
-        r = requests.post(
-            "https://render-garmin.onrender.com/sync/heart-rate",
-            headers={"x-api-key": api_key},
-            timeout=15,
-        )
-        return jsonify(r.json()), r.status_code
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/keboola-run", methods=["POST"])
