@@ -22,14 +22,21 @@ from data_loader import (
     load_garmin_hr_intraday,
 )
 from metrics import (
+    compute_acwr,
     compute_aerobic_efficiency,
     compute_atl_ctl_tsb,
+    compute_cadence_trend,
+    compute_decoupling_factor,
+    compute_gear_mileage,
     compute_hr_recovery,
     compute_hr_zones,
+    compute_long_run_flags,
     compute_morning_readiness,
+    compute_race_predictor,
     compute_split_stats,
     compute_streak,
     compute_training_monotony,
+    compute_weekly_ramp_rate,
     default_max_hr,
     make_daily_trimp,
 )
@@ -213,6 +220,10 @@ def api_overview():
     this_year = acts["year"].max() if not acts.empty else 0
     days_active = int(acts[acts["year"] == this_year]["date"].nunique())
 
+    # Gear mileage
+    details = load_activity_details()
+    gear_mileage = compute_gear_mileage(acts, details)
+
     return jsonify({
         "kpis": kpis,
         "heatmap": heatmap,
@@ -224,6 +235,7 @@ def api_overview():
             "days_active_this_year": days_active,
             "year": int(this_year),
         },
+        "gear_mileage": gear_mileage,
     })
 
 
@@ -301,12 +313,43 @@ def api_hr_zones():
     except Exception:
         pass
 
+    # Cadence trend
+    cadence_data = {}
+    try:
+        details_cad = load_activity_details()
+        cadence_df = compute_cadence_trend(acts, details_cad)
+        if not cadence_df.empty:
+            cadence_data = {
+                "dates": cadence_df["week_start"].tolist(),
+                "avg_cadence": cadence_df["avg_cadence"].round(1).tolist(),
+                "cadence_rolling": cadence_df["cadence_rolling"].round(1).tolist(),
+            }
+    except Exception:
+        pass
+
+    # Decoupling factor
+    decoupling_data = {}
+    try:
+        drift_for_decouple = get_all_hr_drift()
+        decouple_df = compute_decoupling_factor(drift_for_decouple, acts)
+        if not decouple_df.empty:
+            decouple_clean = decouple_df.dropna(subset=["decoupling_pct"])
+            decoupling_data = {
+                "dates": decouple_clean["date"].tolist(),
+                "decoupling_pct": decouple_clean["decoupling_pct"].tolist(),
+                "rolling_20": decouple_clean["rolling_20"].tolist(),
+            }
+    except Exception:
+        pass
+
     return jsonify({
         "zone_defs": zone_defs,
         "rolling_zones": rolling_zones,
         "aerobic_efficiency": ae_data,
         "hr_drift": drift_data,
         "hr_recovery": hr_recovery_data,
+        "cadence_weekly": cadence_data,
+        "decoupling_factor": decoupling_data,
     })
 
 
@@ -330,6 +373,11 @@ def api_fitness():
 
     # Downsample to weekly for smaller payload
     form_weekly = form_df.resample("W").last().dropna()
+
+    # ACWR series
+    acwr_series = compute_acwr(form_df)
+    acwr_weekly = acwr_series.resample("W").last().dropna()
+    acwr_current = float(acwr_series.iloc[-1]) if not acwr_series.empty else None
 
     # Activity overlay (date + CTL value at that date)
     act_dates = pd.to_datetime(acts["date"])
@@ -393,6 +441,13 @@ def api_fitness():
         },
         "resting_hr_series": resting_hr_data,
         "morning_readiness": morning_readiness_data,
+        "acwr": {
+            "current_value": round(acwr_current, 3) if acwr_current is not None else None,
+            "series": {
+                "dates": acwr_weekly.index.strftime("%Y-%m-%d").tolist(),
+                "values": acwr_weekly.round(3).tolist(),
+            },
+        },
     })
 
 
@@ -446,10 +501,33 @@ def api_pacing():
             "pb": monthly["pb"].round(2).tolist(),
         }
 
+    # Race history (workout_type == 1)
+    race_history = {}
+    race_acts = run_acts[run_acts.get("workout_type", pd.Series(0, index=run_acts.index)) == 1].copy() if "workout_type" in run_acts.columns else pd.DataFrame()
+    if not race_acts.empty:
+        thresholds_race = {"5 km": 4.5, "10 km": 9.0, "Half marathon": 19.0, "Marathon": 38.0}
+        for label, min_km in thresholds_race.items():
+            max_km = min_km * 3
+            subset = race_acts[(race_acts["distance_km"] >= min_km) & (race_acts["distance_km"] < max_km)]
+            if not subset.empty:
+                race_history[label] = {
+                    "dates": subset["start_date_local"].dt.strftime("%Y-%m-%d").tolist(),
+                    "pace": subset["pace_min_per_km"].round(2).tolist(),
+                    "distance_km": subset["distance_km"].round(1).tolist(),
+                }
+
+    # Race predictor
+    best_paces_for_predict = {
+        label: min(data["pace"]) for label, data in best_efforts.items() if data["pace"]
+    }
+    predictions = compute_race_predictor(best_paces_for_predict)
+
     return jsonify({
         "splits": splits_out,
         "consistency": consistency_out,
         "best_efforts": best_efforts,
+        "race_history": race_history,
+        "predictions": predictions,
     })
 
 
@@ -572,6 +650,25 @@ def api_periodization():
                 "hard": (monthly["hard"] / total * 100).round(1).tolist(),
             }
 
+    # Ramp rate
+    ramp_df = compute_weekly_ramp_rate(acts)
+    ramp_data = {}
+    if not ramp_df.empty:
+        ramp_data = {
+            "weeks": ramp_df["week_start"].tolist(),
+            "ramp_rate": _sanitize(ramp_df["ramp_rate"].tolist()),
+        }
+
+    # Long run flags
+    long_run_df = compute_long_run_flags(acts)
+    long_runs_data = {}
+    if not long_run_df.empty:
+        long_runs_data = {
+            "weeks": long_run_df["week_start"].tolist(),
+            "is_long_run": long_run_df["is_long_run"].tolist(),
+            "long_run_distance": _sanitize(long_run_df["long_run_distance"].tolist()),
+        }
+
     return jsonify({
         "weekly": weekly_data,
         "yoy": yoy_data,
@@ -579,6 +676,8 @@ def api_periodization():
         "yoy_gap": yoy_gap_data,
         "monotony": monotony_data,
         "intensity": intensity_data,
+        "ramp_rate": ramp_data,
+        "long_runs": long_runs_data,
     })
 
 
