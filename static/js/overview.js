@@ -78,4 +78,40 @@ function renderOverview(data) {
     kpiCard("Current streak", `${s.current} days`, null, "") +
     kpiCard("Longest streak", `${s.longest} days`, null, "") +
     kpiCard(`Active days in ${s.year}`, s.days_active_this_year, null, "");
+
+  // Gear mileage
+  const gearEl = document.getElementById("chart-gear");
+  if (data.gear_mileage && data.gear_mileage.length > 0) {
+    const gearNames = data.gear_mileage.map(g => g.gear_name);
+    const gearDist = data.gear_mileage.map(g => g.distance_km);
+    const WARNING_KM = 700;
+    Plotly.newPlot("chart-gear", [
+      {
+        type: "bar",
+        orientation: "h",
+        x: gearDist,
+        y: gearNames,
+        marker: { color: gearDist.map(d => d >= WARNING_KM ? "#e74c3c" : "#1abc9c") },
+        hovertemplate: "<b>%{y}</b><br>%{x:.0f} km<extra></extra>",
+        name: "Mileage",
+      },
+    ], {
+      ...PLOTLY_LAYOUT,
+      height: Math.max(160, gearNames.length * 48 + 60),
+      margin: { l: 180, r: 60, t: 20, b: 40 },
+      xaxis: { ...PLOTLY_LAYOUT.xaxis, title: "Total km" },
+      yaxis: { ...PLOTLY_LAYOUT.yaxis, autorange: "reversed" },
+      shapes: [{
+        type: "line",
+        x0: WARNING_KM, x1: WARNING_KM, y0: -0.5, y1: gearNames.length - 0.5,
+        line: { color: "#e74c3c", dash: "dot", width: 1.5 },
+      }],
+      annotations: [{
+        x: WARNING_KM, y: 0, text: "700 km", showarrow: false,
+        xanchor: "left", font: { color: "#e74c3c", size: 11 }, xshift: 4,
+      }],
+    }, PLOTLY_CONFIG);
+  } else if (gearEl) {
+    gearEl.innerHTML = `<p class="caption" style="padding:20px">No shoe data available.</p>`;
+  }
 }

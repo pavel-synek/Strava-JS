@@ -90,4 +90,64 @@ function renderPacing(data) {
   } else {
     document.getElementById("chart-best").innerHTML = `<p class="caption" style="padding:20px">Not enough data for best efforts.</p>`;
   }
+
+  // Race history
+  const rh = data.race_history;
+  const raceHistEl = document.getElementById("chart-race-history");
+  if (rh && Object.keys(rh).length > 0) {
+    const rhColors = { "5 km": "#27ae60", "10 km": "#4a90d9", "Half marathon": "#f1c40f", "Marathon": "#e74c3c" };
+    const rhTraces = Object.entries(rh).map(([label, d]) => ({
+      type: "scatter",
+      x: d.dates, y: d.pace,
+      mode: "markers",
+      name: label,
+      marker: { color: rhColors[label] || "#1abc9c", size: 8, opacity: 0.85 },
+      text: d.distance_km ? d.distance_km.map(dist => `${dist} km`) : [],
+      hovertemplate: `<b>${label}</b><br>%{x}<br>%{y:.2f} min/km<br>%{text}<extra></extra>`,
+    }));
+    Plotly.newPlot("chart-race-history", rhTraces, {
+      ...PLOTLY_LAYOUT,
+      height: 320,
+      yaxis: { ...PLOTLY_LAYOUT.yaxis, title: "Pace (min/km)", autorange: "reversed" },
+      legend: { orientation: "h", y: 1.12, bgcolor: "transparent" },
+    }, PLOTLY_CONFIG);
+  } else if (raceHistEl) {
+    raceHistEl.innerHTML = `<p class="caption" style="padding:20px">No race data. Log activities as "Race" in Strava.</p>`;
+  }
+
+  // Race predictor table
+  const predEl = document.getElementById("race-predictor-block");
+  if (predEl) {
+    const pred = data.predictions;
+    if (pred && Object.keys(pred).length > 0) {
+      function fmtPace(paceMinPerKm) {
+        const totalSec = Math.round(paceMinPerKm * 60);
+        const mm = Math.floor(totalSec / 60);
+        const ss = String(totalSec % 60).padStart(2, "0");
+        return `${mm}:${ss}/km`;
+      }
+      function paceToFinish(paceMinPerKm, distKm) {
+        const totalMin = paceMinPerKm * distKm;
+        const h = Math.floor(totalMin / 60);
+        const m = Math.floor(totalMin % 60);
+        const s = Math.round((totalMin * 60) % 60);
+        return h > 0 ? `${h}h ${String(m).padStart(2,"0")}m ${String(s).padStart(2,"0")}s`
+                     : `${m}m ${String(s).padStart(2,"0")}s`;
+      }
+      const distKm = { "Half marathon": 21.0975, "Marathon": 42.195 };
+      const rows = Object.entries(pred).map(([label, pace]) =>
+        `<tr><td>${label}</td><td>${fmtPace(pace)}</td><td>${paceToFinish(pace, distKm[label] || 0)}</td></tr>`
+      ).join("");
+      predEl.innerHTML = `<table style="width:100%;border-collapse:collapse;color:#e0e0e0;font-size:0.95em">
+        <thead><tr style="border-bottom:1px solid #2d3447">
+          <th style="text-align:left;padding:8px 12px">Distance</th>
+          <th style="text-align:left;padding:8px 12px">Predicted pace</th>
+          <th style="text-align:left;padding:8px 12px">Finish time</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+    } else {
+      predEl.innerHTML = `<p class="caption" style="padding:20px">Need 5 km or 10 km training data for predictions.</p>`;
+    }
+  }
 }
