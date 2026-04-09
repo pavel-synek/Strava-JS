@@ -1,11 +1,15 @@
 function renderPeriodization(data) {
-  // Weekly volume
+  // Weekly volume (with long-run highlighting)
   const wk = data.weekly;
   if (wk && wk.weeks.length > 0) {
+    const longRunFlags = (data.long_runs && data.long_runs.is_long_run) ? data.long_runs.is_long_run : [];
+    const barColors = wk.weeks.map((_, i) => longRunFlags[i] ? "#8e44ad" : "#4a90d9");
+    const barOpacity = wk.weeks.map((_, i) => longRunFlags[i] ? 0.9 : 0.7);
     Plotly.newPlot("chart-weekly", [
       {
         type: "bar", x: wk.weeks, y: wk.distance,
-        name: "Weekly km", marker: { color: "#4a90d9", opacity: 0.7 },
+        name: "Weekly km",
+        marker: { color: barColors, opacity: barOpacity },
         hovertemplate: "Week: %{x}<br>%{y:.1f} km<extra></extra>",
       },
       {
@@ -140,5 +144,35 @@ function renderPeriodization(data) {
     }, PLOTLY_CONFIG);
   } else {
     document.getElementById("chart-intensity").innerHTML = `<p class="caption" style="padding:20px">No stream HR data for intensity distribution.</p>`;
+  }
+
+  // Ramp rate chart
+  const rampEl = document.getElementById("chart-ramp-rate");
+  const rr = data.ramp_rate;
+  if (rr && rr.weeks && rr.weeks.length > 0) {
+    const validRamp = rr.ramp_rate.map(v => v == null ? 0 : v);
+    Plotly.newPlot("chart-ramp-rate", [
+      {
+        type: "bar",
+        x: rr.weeks,
+        y: validRamp,
+        name: "Ramp rate",
+        marker: { color: validRamp.map(v => Math.abs(v) > 10 ? "#e74c3c" : "#27ae60"), opacity: 0.8 },
+        hovertemplate: "Week: %{x}<br>Ramp: %{y:+.1f}%<extra></extra>",
+      },
+    ], {
+      ...PLOTLY_LAYOUT,
+      height: 280,
+      yaxis: { ...PLOTLY_LAYOUT.yaxis, title: "% week-over-week change", zeroline: true, zerolinecolor: "#555" },
+      shapes: [
+        { type: "line", x0: rr.weeks[0], x1: rr.weeks[rr.weeks.length - 1], y0: 10, y1: 10, line: { color: "#e74c3c", dash: "dot", width: 1 } },
+        { type: "line", x0: rr.weeks[0], x1: rr.weeks[rr.weeks.length - 1], y0: -10, y1: -10, line: { color: "#e74c3c", dash: "dot", width: 1 } },
+      ],
+      annotations: [
+        { x: rr.weeks[rr.weeks.length - 1], y: 10, text: "+10%", showarrow: false, xanchor: "right", font: { color: "#e74c3c", size: 10 }, yshift: 8 },
+      ],
+    }, PLOTLY_CONFIG);
+  } else if (rampEl) {
+    rampEl.innerHTML = `<p class="caption" style="padding:20px">No ramp rate data available.</p>`;
   }
 }

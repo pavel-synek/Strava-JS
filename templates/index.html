@@ -73,6 +73,7 @@
       </div>
       <div class="chart-box full"><h3>Monthly distance &amp; elevation</h3><div id="chart-monthly"></div></div>
       <div id="streak-row" class="kpi-row"></div>
+      <div class="chart-box full"><h3>Shoe mileage</h3><p class="caption">Total km per shoe — replace after ~700 km</p><div id="chart-gear"></div></div>
     </section>
 
     <!-- ── Tab 2: HR Zones ── -->
@@ -102,6 +103,7 @@
     <section id="tab-fitness" class="tab-content">
       <div id="fitness-kpi-row" class="kpi-row"></div>
       <div class="chart-box full"><h3>Fitness / Fatigue / Form (ATL · CTL · TSB)</h3><p class="caption">CTL = 42-day fitness base · ATL = 7-day fatigue · TSB = CTL − ATL (form)</p><div id="chart-fitness"></div></div>
+      <div class="chart-box full"><h3>Acute:Chronic Workload Ratio (ACWR)</h3><p class="caption">ATL ÷ CTL · green &lt;1.3 safe · amber 1.3–1.5 caution · red &gt;1.5 injury risk</p><div id="chart-acwr"></div></div>
       <div id="restingHrChart" style="width:100%;margin-top:24px;"></div>
     </section>
 
@@ -112,6 +114,8 @@
         <div class="chart-box half"><h3>Pacing consistency</h3><p class="caption">Lower std = more even km pacing</p><div id="chart-consistency"></div></div>
       </div>
       <div class="chart-box full"><h3>Best efforts over time <span class="caption">(estimated from avg pace)</span></h3><div id="chart-best"></div></div>
+      <div class="chart-box full"><h3>Race performance history</h3><p class="caption">Official race results only · colored by distance bracket</p><div id="chart-race-history"></div></div>
+      <div class="chart-box full"><h3>Race predictor</h3><p class="caption">Riegel formula from best training effort — T2 = T1 × (D2/D1)^1.06</p><div id="race-predictor-block"></div></div>
     </section>
 
     <!-- ── Tab 5: Periodization ── -->
@@ -128,6 +132,7 @@
         <div class="chart-box half"><h3>Training monotony</h3><p class="caption">Caution &gt;1.5 · Risk &gt;2.0</p><div id="chart-monotony"></div></div>
         <div class="chart-box half"><h3>Easy / Moderate / Hard distribution</h3><div id="chart-intensity"></div></div>
       </div>
+      <div class="chart-box full"><h3>Weekly load ramp rate</h3><p class="caption">Week-over-week distance change · red &gt;10% = too fast (injury risk)</p><div id="chart-ramp-rate"></div></div>
     </section>
   </main>
 
