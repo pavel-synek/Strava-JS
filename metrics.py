@@ -18,15 +18,16 @@ def compute_hr_zones(max_hr: float, model: str = "5zone", resting_hr: float = 45
 
 
 def compute_trimp(acts: pd.DataFrame, resting_hr: float, max_hr: float, resting_hr_series: pd.Series = None) -> pd.Series:
-    if resting_hr_series is not None:
-        # Map each activity's date to a per-activity resting HR, falling back to scalar
-        act_dates = pd.to_datetime(acts["date"]).dt.normalize()
-        per_act_resting = act_dates.map(
-            lambda d: resting_hr_series.get(d, resting_hr)
-        )
-        per_act_resting.index = acts.index
-    else:
-        per_act_resting = resting_hr
+    per_act_resting = resting_hr  # default scalar path
+    if resting_hr_series is not None and not resting_hr_series.empty:
+        try:
+            act_dates = pd.to_datetime(acts["date"]).dt.normalize()
+            # Deduplicate index (multiple rows per day → keep last), then map via pandas alignment
+            rs = resting_hr_series[~resting_hr_series.index.duplicated(keep="last")]
+            per_act_resting = act_dates.map(rs).fillna(resting_hr).astype(float)
+            per_act_resting.index = acts.index
+        except Exception:
+            per_act_resting = resting_hr  # fall back to scalar on any error
 
     hr_range = max_hr - per_act_resting
     if not isinstance(hr_range, pd.Series) and hr_range <= 0:

@@ -317,7 +317,10 @@ def api_fitness():
     p = _parse_params()
     acts, zones, max_hr, resting_hr = p["acts"], p["zones"], p["max_hr"], p["resting_hr"]
 
-    daily_trimp = make_daily_trimp(acts, resting_hr, max_hr, resting_hr_series=p["resting_hr_series"])
+    try:
+        daily_trimp = make_daily_trimp(acts, resting_hr, max_hr, resting_hr_series=p["resting_hr_series"])
+    except Exception:
+        daily_trimp = make_daily_trimp(acts, resting_hr, max_hr)
     if daily_trimp.sum() == 0:
         return jsonify({"error": "No heart rate data available."})
 
@@ -522,7 +525,10 @@ def api_periodization():
     }
 
     # Training monotony
-    daily_trimp = make_daily_trimp(acts, resting_hr, max_hr, resting_hr_series=p["resting_hr_series"])
+    try:
+        daily_trimp = make_daily_trimp(acts, resting_hr, max_hr, resting_hr_series=p["resting_hr_series"])
+    except Exception:
+        daily_trimp = make_daily_trimp(acts, resting_hr, max_hr)
     monotony_data = {}
     if daily_trimp.sum() > 0:
         mono = compute_training_monotony(daily_trimp).dropna()
