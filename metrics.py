@@ -278,3 +278,178 @@ def compute_morning_readiness(intraday_df: pd.DataFrame, hr_daily_df: pd.DataFra
 
     result_df = pd.DataFrame(results, columns=empty_cols)
     return result_df.sort_values("date").reset_index(drop=True)
+
+
+def compute_acwr(form_df: pd.DataFrame) -> pd.Series:
+    """Compute Acute:Chronic Workload Ratio (ATL/CTL). CTL clamped to min 1.0."""
+    if form_df.empty:
+        return pd.Series(name="ACWR", dtype=float)
+    ctl_safe = form_df["CTL"].clip(lower=1.0)
+    acwr = form_df["ATL"] / ctl_safe
+    acwr.name = "ACWR"
+    return acwr
+
+
+def compute_weekly_ramp_rate(acts: pd.DataFrame) -> pd.DataFrame:
+    """Compute week-over-week distance % change."""
+    empty_cols = ["week_start", "ramp_rate"]
+    if acts.empty:
+        return pd.DataFrame(columns=empty_cols)
+    weekly = acts.groupby("week")["distance_km"].sum().reset_index()
+    weekly = weekly.sort_values("week")
+    weekly["ramp_rate"] = weekly["distance_km"].pct_change() * 100
+    weekly["week_start"] = weekly["week"].dt.start_time.dt.strftime("%Y-%m-%d")
+    return weekly[empty_cols].reset_index(drop=True)
+
+
+def compute_gear_mileage(acts: pd.DataFrame, details: pd.DataFrame) -> list:
+    """Return list of dicts {gear_name, distance_km} sorted by distance descending."""
+    if acts.empty:
+        return []
+    # Merge details gear_name onto acts; details takes priority
+    if not details.empty and "gear_name" in details.columns:
+        merged = acts.merge(
+            details[["id", "gear_name"]].rename(columns={"gear_name": "gear_name_det"}),
+            on="id", how="left"
+        )
+        merged["gear_resolved"] = merged["gear_name_det"].where(
+            merged["gear_name_det"].notna() & (merged["gear_name_det"] != ""),
+            other=merged.get("gear_name")
+        )
+    else:
+        merged = acts.copy()
+        merged["gear_resolved"] = merged.get("gear_name")
+
+    # Filter out unknown/empty gear
+    invalid = {"", "Unknown", None}
+    mask = merged["gear_resolved"].notna() & ~merged["gear_resolved"].isin(invalid)
+    filtered = merged[mask]
+    if filtered.empty:
+        return []
+
+    grouped = (
+        filtered.groupby("gear_resolved")["distance_km"]
+        .sum()
+        .reset_index()
+        .rename(columns={"gear_resolved": "gear_name"})
+        .sort_values("distance_km", ascending=False)
+    )
+    return [{"gear_name": row["gear_name"], "distance_km": float(row["distance_km"])} for _, row in grouped.iterrows()]
+
+
+def compute_long_run_flags(acts: pd.DataFrame) -> pd.DataFrame:
+    """Return weekly DataFrame with is_long_run flag and long_run_distance."""
+    empty_cols = ["week_start", "distance_km", "is_long_run", "long_run_distance"]
+    if acts.empty:
+        return pd.DataFrame(columns=empty_cols)
+
+    def week_stats(grp):
+        total_dist = grp["distance_km"].sum()
+        long_mask = (grp.get("workout_type") == 10) | (grp["distance_km"] >= 25)
+        is_long = bool(long_mask.any())
+        long_run_dist = grp.loc[long_mask, "distance_km"].max() if is_long else np.nan
+        return pd.Series({
+            "distance_km": total_dist,
+            "is_long_run": is_long,
+            "long_run_distance": long_run_dist,
+        })
+
+    weekly = acts.groupby("week").apply(week_stats).reset_index()
+    weekly["week_start"] = weekly["week"].dt.start_time.dt.strftime("%Y-%m-%d")
+    weekly = weekly.sort_values("week_start").reset_index(drop=True)
+    return weekly[empty_cols]
+
+
+def compute_cadence_trend(acts: pd.DataFrame, details: pd.DataFrame) -> pd.DataFrame:
+    """Return weekly cadence + 4-week rolling average for Run/TrailRun activities."""
+    empty_cols = ["week_start", "avg_cadence", "cadence_rolling"]
+    if acts.empty or details.empty:
+        return pd.DataFrame(columns=empty_cols)
+
+    if "average_cadence" not in details.columns:
+        return pd.DataFrame(columns=empty_cols)
+
+    runs = acts[acts["sport_type"].isin(["Run", "TrailRun"])][["id", "week"]]
+    merged = runs.merge(details[["id", "average_cadence"]], on="id", how="inner")
+    merged = merged[merged["average_cadence"].notna()]
+    if merged.empty:
+        return pd.DataFrame(columns=empty_cols)
+
+    # Normalise cadence: Strava stores as full steps/min (spm); some devices halve it
+    median_cad = merged["average_cadence"].median()
+    if median_cad < 110:
+        merged["average_cadence"] = merged["average_cadence"] * 2
+
+    weekly = merged.groupby("week")["average_cadence"].mean().reset_index()
+    weekly = weekly.rename(columns={"average_cadence": "avg_cadence"})
+    weekly = weekly.sort_values("week")
+    weekly["cadence_rolling"] = weekly["avg_cadence"].rolling(4, min_periods=1).mean()
+    weekly["week_start"] = weekly["week"].dt.start_time.dt.strftime("%Y-%m-%d")
+    weekly = weekly.dropna(subset=["avg_cadence"])
+    return weekly[empty_cols].reset_index(drop=True)
+
+
+def compute_decoupling_factor(drift_df: pd.DataFrame, acts: pd.DataFrame) -> pd.DataFrame:
+    """Compute cardiac drift % per activity with 20-activity rolling average."""
+    empty_cols = ["activity_id", "date", "decoupling_pct", "rolling_20"]
+    if drift_df.empty or acts.empty:
+        return pd.DataFrame(columns=empty_cols)
+
+    df = drift_df.copy()
+    df["decoupling_pct"] = (df["late_hr"] - df["early_hr"]) / df["early_hr"] * 100
+
+    date_map = acts[["id", "start_date_local"]].copy()
+    date_map["date"] = pd.to_datetime(date_map["start_date_local"]).dt.strftime("%Y-%m-%d")
+
+    merged = df.merge(date_map[["id", "date"]], left_on="activity_id", right_on="id", how="left")
+    merged = merged.sort_values("date").reset_index(drop=True)
+    merged["rolling_20"] = merged["decoupling_pct"].rolling(20, min_periods=1).mean()
+
+    merged["decoupling_pct"] = merged["decoupling_pct"].round(2)
+    merged["rolling_20"] = merged["rolling_20"].round(2)
+    return merged[empty_cols].reset_index(drop=True)
+
+
+def compute_race_predictor(best_paces: dict) -> dict:
+    """
+    Riegel formula predictions for Half Marathon and Marathon.
+    T2 = T1 * (D2/D1)^1.06
+    Input: {distance_label: best_pace_min_per_km}
+    Output: {label: predicted_pace_min_per_km}
+    """
+    distance_map = {
+        "1 km": 1.0,
+        "5 km": 5.0,
+        "10 km": 10.0,
+        "Half marathon": 21.0975,
+        "Marathon": 42.195,
+    }
+    if not best_paces:
+        return {}
+
+    # Select best reference from 5k or 10k (lowest pace = fastest)
+    ref_label = None
+    ref_pace = None
+    for label in ["5 km", "10 km"]:
+        if label in best_paces and best_paces[label] is not None:
+            pace = best_paces[label]
+            if ref_pace is None or pace < ref_pace:
+                ref_label = label
+                ref_pace = pace
+
+    if ref_label is None:
+        return {}
+
+    ref_dist = distance_map[ref_label]
+    ref_time = ref_pace * ref_dist  # total minutes
+
+    predictions = {}
+    for label, dist in distance_map.items():
+        if dist <= ref_dist:
+            continue
+        if label in best_paces:
+            continue
+        predicted_time = ref_time * (dist / ref_dist) ** 1.06
+        predictions[label] = round(predicted_time / dist, 4)
+
+    return predictions
