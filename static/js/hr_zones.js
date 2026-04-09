@@ -102,6 +102,75 @@ function renderHRZones(data) {
     document.getElementById("chart-drift").innerHTML = `<p class="caption" style="padding:20px">No HR drift data available.</p>`;
   }
 
+  // Cadence trend
+  const cadEl = document.getElementById("chart-cadence");
+  const cad = data.cadence_weekly;
+  if (cad && cad.dates && cad.dates.length > 0) {
+    Plotly.newPlot("chart-cadence", [
+      {
+        type: "scatter", x: cad.dates, y: cad.avg_cadence,
+        mode: "markers", name: "Weekly avg",
+        marker: { color: "#4a90d9", size: 6, opacity: 0.6 },
+        hovertemplate: "Week: %{x}<br>Cadence: %{y:.0f} spm<extra></extra>",
+      },
+      {
+        type: "scatter", x: cad.dates, y: cad.cadence_rolling,
+        mode: "lines", name: "4-week avg",
+        line: { color: "#1abc9c", width: 2 },
+        hovertemplate: "4w avg: %{y:.0f} spm<extra></extra>",
+      },
+    ], {
+      ...PLOTLY_LAYOUT,
+      height: 300,
+      yaxis: { ...PLOTLY_LAYOUT.yaxis, title: "Steps/min (spm)" },
+      legend: { orientation: "h", y: 1.12, bgcolor: "transparent" },
+      shapes: [
+        { type: "rect", x0: cad.dates[0], x1: cad.dates[cad.dates.length - 1], y0: 170, y1: 180, fillcolor: "rgba(39,174,96,0.1)", line: { width: 0 } },
+        { type: "line", x0: cad.dates[0], x1: cad.dates[cad.dates.length - 1], y0: 170, y1: 170, line: { color: "#27ae60", dash: "dot", width: 1 } },
+        { type: "line", x0: cad.dates[0], x1: cad.dates[cad.dates.length - 1], y0: 180, y1: 180, line: { color: "#27ae60", dash: "dot", width: 1 } },
+      ],
+      annotations: [
+        { x: cad.dates[cad.dates.length - 1], y: 175, text: "Optimal 170–180", showarrow: false, xanchor: "right", font: { color: "#27ae60", size: 10 } },
+      ],
+    }, PLOTLY_CONFIG);
+  } else if (cadEl) {
+    cadEl.innerHTML = `<p class="caption" style="padding:20px">No cadence data available. Ensure Garmin/Strava records average cadence.</p>`;
+  }
+
+  // Decoupling factor
+  const decEl = document.getElementById("chart-decoupling");
+  const dec = data.decoupling_factor;
+  if (dec && dec.dates && dec.dates.length > 0) {
+    const decColors = dec.decoupling_pct.map(v => v != null && v >= 5 ? "#e74c3c" : "#27ae60");
+    Plotly.newPlot("chart-decoupling", [
+      {
+        type: "scatter", x: dec.dates, y: dec.decoupling_pct,
+        mode: "markers", name: "Cardiac drift %",
+        marker: { color: decColors, size: 6, opacity: 0.7 },
+        hovertemplate: "Date: %{x}<br>Drift: %{y:+.1f}%<extra></extra>",
+      },
+      {
+        type: "scatter", x: dec.dates, y: dec.rolling_20,
+        mode: "lines", name: "20-run avg",
+        line: { color: "#f1c40f", width: 2 },
+        hovertemplate: "20-run avg: %{y:+.1f}%<extra></extra>",
+      },
+    ], {
+      ...PLOTLY_LAYOUT,
+      height: 300,
+      yaxis: { ...PLOTLY_LAYOUT.yaxis, title: "Cardiac drift (%)", zeroline: true, zerolinecolor: "#555" },
+      legend: { orientation: "h", y: 1.12, bgcolor: "transparent" },
+      shapes: [
+        { type: "line", x0: dec.dates[0], x1: dec.dates[dec.dates.length - 1], y0: 5, y1: 5, line: { color: "#e74c3c", dash: "dash", width: 1.5 } },
+      ],
+      annotations: [
+        { x: dec.dates[dec.dates.length - 1], y: 5, text: "Aerobic threshold 5%", showarrow: false, xanchor: "right", font: { color: "#e74c3c", size: 10 }, yshift: 8 },
+      ],
+    }, PLOTLY_CONFIG);
+  } else if (decEl) {
+    decEl.innerHTML = `<p class="caption" style="padding:20px">No decoupling data available (needs HR drift data).</p>`;
+  }
+
   if (data.hr_recovery && data.hr_recovery.length > 0) {
     const recDates = data.hr_recovery.map(d => d.date);
     const rec1 = data.hr_recovery.map(d => d.recovery_1min);
