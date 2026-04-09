@@ -101,4 +101,74 @@ function renderHRZones(data) {
   } else {
     document.getElementById("chart-drift").innerHTML = `<p class="caption" style="padding:20px">No HR drift data available.</p>`;
   }
+
+  if (data.hr_recovery && data.hr_recovery.length > 0) {
+    const recDates = data.hr_recovery.map(d => d.date);
+    const rec1 = data.hr_recovery.map(d => d.recovery_1min);
+    const rec2 = data.hr_recovery.map(d => d.recovery_2min);
+    const distKm = data.hr_recovery.map(d => d.distance_km);
+    const pace = data.hr_recovery.map(d => d.pace_min_per_km);
+
+    // 20-point rolling average helper
+    function rollingMean(arr, window) {
+      return arr.map((_, i) => {
+        const slice = arr.slice(Math.max(0, i - window + 1), i + 1).filter(v => v !== null && !isNaN(v));
+        return slice.length > 0 ? slice.reduce((a, b) => a + b, 0) / slice.length : null;
+      });
+    }
+
+    const trace1 = {
+      x: recDates, y: rec1,
+      mode: 'markers', name: '1 min recovery',
+      marker: { color: '#27ae60', size: 5, opacity: 0.7 },
+      text: distKm.map((d, i) => `${d} km, ${pace[i]} min/km`),
+      hovertemplate: '%{y:.1f} bpm<br>%{text}<extra>1 min</extra>',
+      type: 'scatter',
+    };
+    const trace2 = {
+      x: recDates, y: rec2,
+      mode: 'markers', name: '2 min recovery',
+      marker: { color: '#2ecc71', size: 5, opacity: 0.7 },
+      text: distKm.map((d, i) => `${d} km, ${pace[i]} min/km`),
+      hovertemplate: '%{y:.1f} bpm<br>%{text}<extra>2 min</extra>',
+      type: 'scatter',
+    };
+    const roll1 = rollingMean(rec1, 20);
+    const roll2 = rollingMean(rec2, 20);
+    const traceRoll1 = {
+      x: recDates, y: roll1,
+      mode: 'lines', name: '1 min (20-run avg)',
+      line: { color: '#1e8449', width: 2 },
+      type: 'scatter',
+    };
+    const traceRoll2 = {
+      x: recDates, y: roll2,
+      mode: 'lines', name: '2 min (20-run avg)',
+      line: { color: '#27ae60', width: 2, dash: 'dot' },
+      type: 'scatter',
+    };
+    // Reference line at y=12 (good recovery threshold)
+    const traceRef = {
+      x: [recDates[0], recDates[recDates.length - 1]],
+      y: [12, 12],
+      mode: 'lines', name: 'Dobrá kondice (12 bpm)',
+      line: { color: '#f39c12', width: 1, dash: 'dash' },
+      type: 'scatter',
+    };
+
+    const layoutRec = {
+      title: 'HR Recovery po aktivitě',
+      paper_bgcolor: 'transparent',
+      plot_bgcolor: 'transparent',
+      font: { color: '#e0e0e0' },
+      xaxis: { gridcolor: '#333', type: 'date' },
+      yaxis: { gridcolor: '#333', title: 'BPM pokles' },
+      legend: { orientation: 'h', y: -0.25 },
+      margin: { t: 40, b: 80, l: 50, r: 20 },
+      height: 280,
+    };
+    Plotly.newPlot('hrRecoveryChart', [trace1, trace2, traceRoll1, traceRoll2, traceRef], layoutRec, { responsive: true, displayModeBar: false });
+  } else {
+    document.getElementById('hrRecoveryChart').innerHTML = '';
+  }
 }
