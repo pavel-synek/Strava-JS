@@ -18,11 +18,15 @@ from data_loader import (
     get_zone_summary,
     load_activities,
     load_activity_details,
+    load_garmin_hr_daily,
+    load_garmin_hr_intraday,
 )
 from metrics import (
     compute_aerobic_efficiency,
     compute_atl_ctl_tsb,
+    compute_hr_recovery,
     compute_hr_zones,
+    compute_morning_readiness,
     compute_split_stats,
     compute_streak,
     compute_training_monotony,
@@ -77,8 +81,23 @@ def _parse_params():
     if races_only:
         acts = acts[acts["workout_type"] == 1].copy()
 
+    # Try to build a daily resting-HR series from Garmin data for accurate TRIMP
+    resting_hr_series = None
+    try:
+        ghr = load_garmin_hr_daily()
+        if not ghr.empty and "restingHeartRate" in ghr.columns:
+            resting_hr_series = ghr["restingHeartRate"].dropna()
+    except Exception:
+        pass
+
     zones = compute_hr_zones(max_hr, zone_model, resting_hr)
-    return acts, zones, max_hr, resting_hr
+    return {
+        "acts": acts,
+        "zones": zones,
+        "max_hr": max_hr,
+        "resting_hr": resting_hr,
+        "resting_hr_series": resting_hr_series,
+    }
 
 
 # ── Pages ─────────────────────────────────────────────────────────────────────
@@ -106,7 +125,8 @@ def api_config():
 
 @app.route("/api/overview")
 def api_overview():
-    acts, zones, max_hr, resting_hr = _parse_params()
+    p = _parse_params()
+    acts, zones, max_hr, resting_hr = p["acts"], p["zones"], p["max_hr"], p["resting_hr"]
     acts_all = load_activities()
 
     date_start = request.args.get("date_start")
@@ -211,7 +231,8 @@ def api_overview():
 
 @app.route("/api/hr-zones")
 def api_hr_zones():
-    acts, zones, max_hr, resting_hr = _parse_params()
+    p = _parse_params()
+    acts, zones, max_hr, resting_hr = p["acts"], p["zones"], p["max_hr"], p["resting_hr"]
     window_days = int(request.args.get("window_days", 90))
 
     # Zone definitions (Karvonen — % of HR reserve)
@@ -271,11 +292,21 @@ def api_hr_zones():
         "dates": drift_merged["start_date_local"].dt.strftime("%Y-%m-%d").tolist(),
     } if not drift_merged.empty else {}
 
+    hr_recovery_data = []
+    try:
+        intraday = load_garmin_hr_intraday()
+        recovery_df = compute_hr_recovery(intraday, acts)
+        if not recovery_df.empty:
+            hr_recovery_data = _sanitize(recovery_df.to_dict("records"))
+    except Exception:
+        pass
+
     return jsonify({
         "zone_defs": zone_defs,
         "rolling_zones": rolling_zones,
         "aerobic_efficiency": ae_data,
         "hr_drift": drift_data,
+        "hr_recovery": hr_recovery_data,
     })
 
 
@@ -283,9 +314,10 @@ def api_hr_zones():
 
 @app.route("/api/fitness")
 def api_fitness():
-    acts, zones, max_hr, resting_hr = _parse_params()
+    p = _parse_params()
+    acts, zones, max_hr, resting_hr = p["acts"], p["zones"], p["max_hr"], p["resting_hr"]
 
-    daily_trimp = make_daily_trimp(acts, resting_hr, max_hr)
+    daily_trimp = make_daily_trimp(acts, resting_hr, max_hr, resting_hr_series=p["resting_hr_series"])
     if daily_trimp.sum() == 0:
         return jsonify({"error": "No heart rate data available."})
 
@@ -299,6 +331,41 @@ def api_fitness():
     # Activity overlay (date + CTL value at that date)
     act_dates = pd.to_datetime(acts["date"])
     act_ctl = form_df["CTL"].reindex(act_dates, method="nearest")
+
+    # Resting HR trend for chart
+    resting_hr_data = []
+    morning_readiness_data = None
+    try:
+        ghr = load_garmin_hr_daily()
+        if not ghr.empty:
+            ghr_filtered = ghr[["restingHeartRate", "lastSevenDaysAvgRestingHeartRate"]].dropna(how="all").copy()
+            ghr_filtered["date"] = ghr_filtered.index.strftime("%Y-%m-%d")
+            ghr_filtered = ghr_filtered.sort_index()
+            resting_hr_data = [
+                {
+                    "date": row["date"],
+                    "resting_hr": None if pd.isna(row["restingHeartRate"]) else round(float(row["restingHeartRate"]), 1),
+                    "rolling_7d": None if pd.isna(row["lastSevenDaysAvgRestingHeartRate"]) else round(float(row["lastSevenDaysAvgRestingHeartRate"]), 1),
+                }
+                for _, row in ghr_filtered.iterrows()
+            ]
+    except Exception:
+        pass
+
+    try:
+        intraday = load_garmin_hr_intraday()
+        ghr = load_garmin_hr_daily()
+        readiness_df = compute_morning_readiness(intraday, ghr)
+        if not readiness_df.empty:
+            latest_r = readiness_df.iloc[-1]
+            morning_readiness_data = {
+                "date": latest_r["date"],
+                "score": None if pd.isna(latest_r["readiness_score"]) else round(float(latest_r["readiness_score"]), 1),
+                "morning_hr": None if pd.isna(latest_r["morning_hr"]) else round(float(latest_r["morning_hr"]), 1),
+                "baseline_hr": None if pd.isna(latest_r["baseline_hr"]) else round(float(latest_r["baseline_hr"]), 1),
+            }
+    except Exception:
+        pass
 
     return jsonify({
         "current": {
@@ -321,6 +388,8 @@ def api_fitness():
             "names": acts["name"].fillna("Activity").tolist(),
             "distance_km": acts["distance_km"].round(1).tolist(),
         },
+        "resting_hr_series": resting_hr_data,
+        "morning_readiness": morning_readiness_data,
     })
 
 
@@ -328,7 +397,8 @@ def api_fitness():
 
 @app.route("/api/pacing")
 def api_pacing():
-    acts, zones, max_hr, resting_hr = _parse_params()
+    p = _parse_params()
+    acts, zones, max_hr, resting_hr = p["acts"], p["zones"], p["max_hr"], p["resting_hr"]
     details = load_activity_details()
 
     split_stats = compute_split_stats(acts, details)
@@ -384,7 +454,8 @@ def api_pacing():
 
 @app.route("/api/periodization")
 def api_periodization():
-    acts, zones, max_hr, resting_hr = _parse_params()
+    p = _parse_params()
+    acts, zones, max_hr, resting_hr = p["acts"], p["zones"], p["max_hr"], p["resting_hr"]
 
     # Weekly volume
     weekly = acts.groupby("week").agg(distance_km=("distance_km", "sum")).reset_index()
@@ -451,7 +522,7 @@ def api_periodization():
     }
 
     # Training monotony
-    daily_trimp = make_daily_trimp(acts, resting_hr, max_hr)
+    daily_trimp = make_daily_trimp(acts, resting_hr, max_hr, resting_hr_series=p["resting_hr_series"])
     monotony_data = {}
     if daily_trimp.sum() > 0:
         mono = compute_training_monotony(daily_trimp).dropna()
