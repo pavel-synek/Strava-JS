@@ -20,12 +20,16 @@ _KEBOOLA_TABLE_IDS = {
     "activities.csv":       f"{_KEBOOLA_BUCKET}.activities",
     "activity_details.csv": f"{_KEBOOLA_BUCKET}.activity_details",
     "streams.csv":          f"{_KEBOOLA_BUCKET}.streams",
+    "garmin_heart_rate.csv":          f"{_KEBOOLA_BUCKET}.garmin_heart_rate",
+    "garmin_heart_rate_intraday.csv": f"{_KEBOOLA_BUCKET}.garmin_heart_rate_intraday",
 }
 
 _KEBOOLA_LOCAL_PATHS = {
     "activities.csv":        f"/data/in/tables/{_KEBOOLA_BUCKET}.activities.csv",
     "activity_details.csv":  f"/data/in/tables/{_KEBOOLA_BUCKET}.activity_details.csv",
     "streams.csv":           f"/data/in/tables/{_KEBOOLA_BUCKET}.streams.csv",
+    "garmin_heart_rate.csv":          f"/data/in/tables/{_KEBOOLA_BUCKET}.garmin_heart_rate.csv",
+    "garmin_heart_rate_intraday.csv": f"/data/in/tables/{_KEBOOLA_BUCKET}.garmin_heart_rate_intraday.csv",
 }
 
 # Module-level cache for the GCS/BQ access token (valid ~1 hour)
@@ -448,3 +452,24 @@ def _hr_drift_from_df(streams: pd.DataFrame) -> pd.DataFrame:
             "late_hr": float(moving.iloc[-cutoff:]["heartrate"].mean()),
         })
     return pd.DataFrame(results)
+
+
+@functools.lru_cache(maxsize=1)
+def load_garmin_hr_daily() -> pd.DataFrame:
+    df = _load_csv("garmin_heart_rate.csv", low_memory=False)
+    df["calendarDate"] = pd.to_datetime(df["calendarDate"])
+    for col in ("restingHeartRate", "maxHeartRate", "lastSevenDaysAvgRestingHeartRate"):
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    df = df.dropna(subset=["calendarDate"])
+    df.index = df["calendarDate"].dt.normalize()
+    return df
+
+
+@functools.lru_cache(maxsize=1)
+def load_garmin_hr_intraday() -> pd.DataFrame:
+    df = _load_csv("garmin_heart_rate_intraday.csv", low_memory=False)
+    df["timestampGMT"] = pd.to_datetime(df["timestampGMT"], utc=True)
+    df["heartRate"] = pd.to_numeric(df["heartRate"], errors="coerce")
+    df = df.dropna(subset=["heartRate"])
+    df = df[df["heartRate"] > 0]
+    return df[["date", "heartRate", "timestampGMT"]]
