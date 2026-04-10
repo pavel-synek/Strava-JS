@@ -6,17 +6,17 @@ function _buildPlotlyLayout() {
   return {
     paper_bgcolor: "transparent",
     plot_bgcolor:  "transparent",
-    font: { color: fontColor, family: "'DM Sans', system-ui, sans-serif", size: 12 },
+    font: { color: fontColor, family: "'Nunito', system-ui, sans-serif", size: 12 },
     margin: { l: 50, r: 30, t: 30, b: 50 },
     xaxis: { gridcolor: gridColor, zerolinecolor: gridColor },
     yaxis: { gridcolor: gridColor, zerolinecolor: gridColor },
     legend: { bgcolor: "transparent", borderwidth: 0 },
-    colorway: ["#4a90d9", "#0fba81", "#f59e0b", "#f97316", "#ef4444", "#9b59b6", "#14b8a6"],
+    colorway: ["#4a90d9", "#fbbf24", "#f97316", "#ea580c", "#ef4444", "#8b5cf6", "#fb923c"],
   };
 }
 let PLOTLY_LAYOUT = _buildPlotlyLayout();
 const PLOTLY_CONFIG = { responsive: true, displayModeBar: false };
-const ZONE_COLORS = { Z1: "#4a90d9", Z2: "#0fba81", Z3: "#f59e0b", Z4: "#f97316", Z5: "#ef4444", Easy: "#0fba81", Moderate: "#f59e0b", Hard: "#ef4444" };
+const ZONE_COLORS = { Z1: "#4a90d9", Z2: "#fbbf24", Z3: "#f97316", Z4: "#ea580c", Z5: "#ef4444", Easy: "#fbbf24", Moderate: "#f97316", Hard: "#ef4444" };
 
 // Track which tabs have been loaded
 const tabLoaded = {};

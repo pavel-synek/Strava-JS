@@ -31,7 +31,7 @@ function renderOverview(data) {
 
   // Sport pie
   const sp = data.sports;
-  const sportColors = { Run: "#1abc9c", TrailRun: "#8e44ad", Ride: "#2980b9", Walk: "#95a5a6", Hike: "#d35400" };
+  const sportColors = { Run: "#f97316", TrailRun: "#8b5cf6", Ride: "#2980b9", Walk: "#94a3b8", Hike: "#ea580c" };
   Plotly.newPlot("chart-sports", [{
     type: "pie",
     labels: sp.labels,
@@ -53,7 +53,7 @@ function renderOverview(data) {
   Plotly.newPlot("chart-monthly", [
     {
       type: "bar", x: m.months, y: m.distance,
-      name: "Distance (km)", marker: { color: "#1abc9c" }, yaxis: "y",
+      name: "Distance (km)", marker: { color: "#f97316" }, yaxis: "y",
       hovertemplate: "%{x}<br>%{y:.1f} km<extra></extra>",
     },
     {
@@ -91,7 +91,7 @@ function renderOverview(data) {
         orientation: "h",
         x: gearDist,
         y: gearNames,
-        marker: { color: gearDist.map(d => d >= WARNING_KM ? "#e74c3c" : "#1abc9c") },
+        marker: { color: gearDist.map(d => d >= WARNING_KM ? "#ef4444" : "#f97316") },
         hovertemplate: "<b>%{y}</b><br>%{x:.0f} km<extra></extra>",
         name: "Mileage",
       },

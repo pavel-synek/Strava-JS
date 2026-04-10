@@ -6,16 +6,15 @@
   --surface2:    #141b24;
   --border:      rgba(255, 255, 255, 0.07);
   --border-sub:  rgba(255, 255, 255, 0.04);
-  --accent:      #0fba81;
-  --accent-dim:  rgba(15, 186, 129, 0.09);
+  --accent:      #f97316;
+  --accent-dim:  rgba(249, 115, 22, 0.09);
   --text:        #e4e8ed;
   --text-dim:    #64748b;
   --text-muted:  #2e3a47;
   --red:         #ef4444;
-  --z1: #4a90d9; --z2: #0fba81; --z3: #f59e0b; --z4: #f97316; --z5: #ef4444;
-  --easy: #0fba81; --moderate: #f59e0b; --hard: #ef4444;
-  --font-ui:   'DM Sans', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Mono', monospace;
+  --z1: #4a90d9; --z2: #fbbf24; --z3: #f97316; --z4: #ea580c; --z5: #ef4444;
+  --easy: #fbbf24; --moderate: #f97316; --hard: #ef4444;
+  --font-ui:   'Nunito', system-ui, sans-serif;
 }
 
 [data-theme="light"] {
@@ -30,8 +29,8 @@
   --text-dim:    #6b7280;
   --text-muted:  #9ca3af;
   --red:         #dc2626;
-  --z1: #2563eb; --z2: #059669; --z3: #d97706; --z4: #ea580c; --z5: #dc2626;
-  --easy: #059669; --moderate: #d97706; --hard: #dc2626;
+  --z1: #2563eb; --z2: #d97706; --z3: #f97316; --z4: #ea580c; --z5: #dc2626;
+  --easy: #d97706; --moderate: #f97316; --hard: #dc2626;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -98,7 +97,6 @@ header h1 .wordmark-accent { color: var(--accent); }
 
 #last-update-value {
   color: var(--text-dim);
-  font-family: var(--font-mono);
   font-size: 11px;
 }
 
@@ -335,17 +333,17 @@ main { padding: 24px 28px; }
   margin-bottom: 7px;
 }
 .kpi-card .kpi-value {
-  font-size: 24px;
-  font-weight: 400;
-  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums lining-nums;
   color: var(--text);
   line-height: 1;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 .kpi-card .kpi-delta {
-  font-size: 10px;
+  font-size: 11px;
   margin-top: 5px;
-  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 .kpi-delta.pos { color: var(--accent); }
 .kpi-delta.neg { color: var(--red); }

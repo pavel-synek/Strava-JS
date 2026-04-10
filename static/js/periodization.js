@@ -15,7 +15,7 @@ function renderPeriodization(data) {
       {
         type: "scatter", x: wk.weeks, y: wk.rolling,
         mode: "lines", name: "4-week avg",
-        line: { color: "#1abc9c", width: 2 },
+        line: { color: "#f97316", width: 2 },
         hovertemplate: "4w avg: %{y:.1f} km<extra></extra>",
       },
     ], {
@@ -27,7 +27,7 @@ function renderPeriodization(data) {
   }
 
   // YoY
-  const colors = ["#4a90d9", "#27ae60", "#f1c40f", "#e67e22", "#e74c3c", "#9b59b6", "#1abc9c"];
+  const colors = ["#4a90d9", "#fbbf24", "#f97316", "#ea580c", "#ef4444", "#8b5cf6", "#fb923c"];
   const yoy = data.yoy;
   if (yoy && yoy.years) {
     const yearKeys = Object.keys(yoy.years).sort();
@@ -131,7 +131,7 @@ function renderPeriodization(data) {
   const intn = data.intensity;
   if (intn && intn.months && intn.months.length > 0) {
     Plotly.newPlot("chart-intensity", [
-      { type: "bar", x: intn.months, y: intn.easy, name: "Easy (Z1+Z2)", marker: { color: "#27ae60" }, hovertemplate: "Easy: %{y:.1f}%<extra></extra>" },
+      { type: "bar", x: intn.months, y: intn.easy, name: "Easy (Z1+Z2)", marker: { color: "#fbbf24" }, hovertemplate: "Easy: %{y:.1f}%<extra></extra>" },
       { type: "bar", x: intn.months, y: intn.moderate, name: "Moderate (Z3)", marker: { color: "#f1c40f" }, hovertemplate: "Moderate: %{y:.1f}%<extra></extra>" },
       { type: "bar", x: intn.months, y: intn.hard, name: "Hard (Z4+Z5)", marker: { color: "#e74c3c" }, hovertemplate: "Hard: %{y:.1f}%<extra></extra>" },
     ], {
@@ -157,7 +157,7 @@ function renderPeriodization(data) {
         x: rr.weeks,
         y: validRamp,
         name: "Ramp rate",
-        marker: { color: validRamp.map(v => Math.abs(v) > 10 ? "#e74c3c" : "#27ae60"), opacity: 0.8 },
+        marker: { color: validRamp.map(v => Math.abs(v) > 10 ? "#ef4444" : "#f97316"), opacity: 0.8 },
         hovertemplate: "Week: %{x}<br>Ramp: %{y:+.1f}%<extra></extra>",
       },
     ], {

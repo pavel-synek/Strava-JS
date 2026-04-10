@@ -2,7 +2,7 @@ function renderPacing(data) {
   // Splits
   const sp = data.splits;
   if (sp && sp.dates && sp.dates.length > 0) {
-    const colors = sp.split_diff.map(v => (v < 0 ? "rgba(39,174,96,0.7)" : "rgba(231,76,60,0.7)"));
+    const colors = sp.split_diff.map(v => (v < 0 ? "rgba(251,191,36,0.75)" : "rgba(239,68,68,0.7)"));
     Plotly.newPlot("chart-splits", [
       {
         type: "scatter", x: sp.dates, y: sp.split_diff,
@@ -43,7 +43,7 @@ function renderPacing(data) {
       {
         type: "scatter", x: cs.dates, y: cs.rolling,
         mode: "lines",
-        line: { color: "#1abc9c", width: 2 },
+        line: { color: "#f97316", width: 2 },
         name: "20-run avg",
         hovertemplate: "Avg: %{y:.1f} s/km<extra></extra>",
       },
@@ -60,7 +60,7 @@ function renderPacing(data) {
   // Best efforts
   const be = data.best_efforts;
   if (be && Object.keys(be).length > 0) {
-    const colors = ["#4a90d9", "#27ae60", "#f1c40f", "#e67e22", "#e74c3c"];
+    const colors = ["#4a90d9", "#fbbf24", "#f97316", "#ea580c", "#ef4444"];
     const traces = [];
     Object.entries(be).forEach(([label, d], i) => {
       traces.push({
@@ -95,13 +95,13 @@ function renderPacing(data) {
   const rh = data.race_history;
   const raceHistEl = document.getElementById("chart-race-history");
   if (rh && Object.keys(rh).length > 0) {
-    const rhColors = { "5 km": "#27ae60", "10 km": "#4a90d9", "Half marathon": "#f1c40f", "Marathon": "#e74c3c" };
+    const rhColors = { "5 km": "#fbbf24", "10 km": "#4a90d9", "Half marathon": "#f97316", "Marathon": "#ef4444" };
     const rhTraces = Object.entries(rh).map(([label, d]) => ({
       type: "scatter",
       x: d.dates, y: d.pace,
       mode: "markers",
       name: label,
-      marker: { color: rhColors[label] || "#1abc9c", size: 8, opacity: 0.85 },
+      marker: { color: rhColors[label] || "#f97316", size: 8, opacity: 0.85 },
       text: d.distance_km ? d.distance_km.map(dist => `${dist} km`) : [],
       hovertemplate: `<b>${label}</b><br>%{x}<br>%{y:.2f} min/km<br>%{text}<extra></extra>`,
     }));
