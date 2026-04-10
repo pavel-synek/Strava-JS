@@ -21,7 +21,7 @@ function renderPacing(data) {
     ], {
       ...PLOTLY_LAYOUT,
       height: 300,
-      shapes: [{ type: "line", x0: sp.dates[0], x1: sp.dates[sp.dates.length - 1], y0: 0, y1: 0, line: { color: "rgba(255,255,255,0.25)", dash: "dot", width: 1 } }],
+      shapes: [{ type: "line", x0: sp.dates[0], x1: sp.dates[sp.dates.length - 1], y0: 0, y1: 0, line: { color: _themeVars().dimLine, dash: "dot", width: 1 } }],
       yaxis: { ...PLOTLY_LAYOUT.yaxis, title: "2nd half − 1st half (s/km)" },
       legend: { orientation: "h", y: 1.12, bgcolor: "transparent" },
     }, PLOTLY_CONFIG);
@@ -138,8 +138,8 @@ function renderPacing(data) {
       const rows = Object.entries(pred).map(([label, pace]) =>
         `<tr><td>${label}</td><td>${fmtPace(pace)}</td><td>${paceToFinish(pace, distKm[label] || 0)}</td></tr>`
       ).join("");
-      predEl.innerHTML = `<table style="width:100%;border-collapse:collapse;color:#e0e0e0;font-size:0.95em">
-        <thead><tr style="border-bottom:1px solid #2d3447">
+      predEl.innerHTML = `<table style="width:100%;border-collapse:collapse;color:${_themeVars().fontColor};font-size:0.95em">
+        <thead><tr style="border-bottom:1px solid ${_themeVars().borderColor}">
           <th style="text-align:left;padding:8px 12px">Distance</th>
           <th style="text-align:left;padding:8px 12px">Predicted pace</th>
           <th style="text-align:left;padding:8px 12px">Finish time</th>

@@ -90,9 +90,9 @@ function renderFitness(data) {
     height: 440,
     barmode: "overlay",
     yaxis: { ...PLOTLY_LAYOUT.yaxis, title: "Load (TRIMP)" },
-    yaxis2: { title: "Form (TSB)", overlaying: "y", side: "right", gridcolor: "transparent", color: "#e0e0e0", zeroline: true, zerolinecolor: "#555" },
+    yaxis2: { title: "Form (TSB)", overlaying: "y", side: "right", gridcolor: "transparent", color: _themeVars().fontColor, zeroline: true, zerolinecolor: _themeVars().zeroLine },
     legend: { orientation: "h", y: 1.08, bgcolor: "transparent" },
-    shapes: [{ type: "line", x0: s.dates[0], x1: s.dates[s.dates.length - 1], y0: 0, y1: 0, yref: "y2", line: { color: "rgba(255,255,255,0.2)", dash: "dot", width: 1 } }],
+    shapes: [{ type: "line", x0: s.dates[0], x1: s.dates[s.dates.length - 1], y0: 0, y1: 0, yref: "y2", line: { color: _themeVars().dimLine, dash: "dot", width: 1 } }],
   }, PLOTLY_CONFIG);
 
   // ACWR chart
@@ -152,12 +152,10 @@ function renderFitness(data) {
       connectgaps: true,
     };
     const layoutRhr = {
-      title: 'Klidová TF',
-      paper_bgcolor: 'transparent',
-      plot_bgcolor: 'transparent',
-      font: { color: '#e0e0e0' },
-      xaxis: { gridcolor: '#333', type: 'date' },
-      yaxis: { gridcolor: '#333', title: 'bpm' },
+      ...PLOTLY_LAYOUT,
+      title: { text: 'Klidová TF', font: { color: _themeVars().fontColor } },
+      xaxis: { ...PLOTLY_LAYOUT.xaxis, type: 'date' },
+      yaxis: { ...PLOTLY_LAYOUT.yaxis, title: 'bpm' },
       legend: { orientation: 'h', y: -0.2 },
       margin: { t: 40, b: 60, l: 50, r: 20 },
       height: 220,

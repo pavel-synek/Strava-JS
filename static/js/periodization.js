@@ -163,7 +163,7 @@ function renderPeriodization(data) {
     ], {
       ...PLOTLY_LAYOUT,
       height: 280,
-      yaxis: { ...PLOTLY_LAYOUT.yaxis, title: "% week-over-week change", zeroline: true, zerolinecolor: "#555" },
+      yaxis: { ...PLOTLY_LAYOUT.yaxis, title: "% week-over-week change", zeroline: true, zerolinecolor: _themeVars().zeroLine },
       shapes: [
         { type: "line", x0: rr.weeks[0], x1: rr.weeks[rr.weeks.length - 1], y0: 10, y1: 10, line: { color: "#e74c3c", dash: "dot", width: 1 } },
         { type: "line", x0: rr.weeks[0], x1: rr.weeks[rr.weeks.length - 1], y0: -10, y1: -10, line: { color: "#e74c3c", dash: "dot", width: 1 } },

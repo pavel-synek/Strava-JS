@@ -78,7 +78,7 @@ function renderHRZones(data) {
           color: dr.pace, colorscale: "RdYlGn", reversescale: true,
           size: dr.distance_km.map(d => Math.min(Math.max(d / 3, 4), 18)),
           opacity: 0.7,
-          colorbar: { title: "Pace<br>(min/km)", tickfont: { color: "#e0e0e0" }, titlefont: { color: "#e0e0e0" } },
+          colorbar: { title: "Pace<br>(min/km)", tickfont: { color: _themeVars().fontColor }, titlefont: { color: _themeVars().fontColor } },
         },
         text: dr.dates,
         hovertemplate: "Date: %{text}<br>Early HR: %{x:.1f}<br>Late HR: %{y:.1f}<extra></extra>",
@@ -87,7 +87,7 @@ function renderHRZones(data) {
         type: "scatter",
         x: [minHr, maxHr], y: [minHr, maxHr],
         mode: "lines",
-        line: { color: "rgba(255,255,255,0.3)", dash: "dash", width: 1 },
+        line: { color: _themeVars().dimLine, dash: "dash", width: 1 },
         showlegend: false,
         hoverinfo: "skip",
       },
@@ -158,7 +158,7 @@ function renderHRZones(data) {
     ], {
       ...PLOTLY_LAYOUT,
       height: 300,
-      yaxis: { ...PLOTLY_LAYOUT.yaxis, title: "Cardiac drift (%)", zeroline: true, zerolinecolor: "#555" },
+      yaxis: { ...PLOTLY_LAYOUT.yaxis, title: "Cardiac drift (%)", zeroline: true, zerolinecolor: _themeVars().zeroLine },
       legend: { orientation: "h", y: 1.12, bgcolor: "transparent" },
       shapes: [
         { type: "line", x0: dec.dates[0], x1: dec.dates[dec.dates.length - 1], y0: 5, y1: 5, line: { color: "#e74c3c", dash: "dash", width: 1.5 } },
@@ -226,12 +226,10 @@ function renderHRZones(data) {
     };
 
     const layoutRec = {
-      title: 'HR Recovery po aktivitě',
-      paper_bgcolor: 'transparent',
-      plot_bgcolor: 'transparent',
-      font: { color: '#e0e0e0' },
-      xaxis: { gridcolor: '#333', type: 'date' },
-      yaxis: { gridcolor: '#333', title: 'BPM pokles' },
+      ...PLOTLY_LAYOUT,
+      title: { text: 'HR Recovery po aktivitě', font: { color: _themeVars().fontColor } },
+      xaxis: { ...PLOTLY_LAYOUT.xaxis, type: 'date' },
+      yaxis: { ...PLOTLY_LAYOUT.yaxis, title: 'BPM pokles' },
       legend: { orientation: 'h', y: -0.25 },
       margin: { t: 40, b: 80, l: 50, r: 20 },
       height: 280,

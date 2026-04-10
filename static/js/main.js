@@ -1,4 +1,15 @@
 // ── Globals ───────────────────────────────────────────────────────────────────
+function _themeVars() {
+  const light = document.documentElement.dataset.theme === "light";
+  return {
+    fontColor:   light ? "#374151" : "#e0e0e0",
+    gridColor:   light ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.07)",
+    zeroLine:    light ? "#d1d5db" : "#555",
+    dimLine:     light ? "rgba(0,0,0,0.2)" : "rgba(255,255,255,0.25)",
+    borderColor: light ? "#e5e7eb" : "#2d3447",
+  };
+}
+
 function _buildPlotlyLayout() {
   const light = document.documentElement.dataset.theme === "light";
   const fontColor  = light ? "#374151" : "#e4e8ed";
@@ -8,8 +19,8 @@ function _buildPlotlyLayout() {
     plot_bgcolor:  "transparent",
     font: { color: fontColor, family: "'Nunito', system-ui, sans-serif", size: 12 },
     margin: { l: 50, r: 30, t: 30, b: 50 },
-    xaxis: { gridcolor: gridColor, zerolinecolor: gridColor },
-    yaxis: { gridcolor: gridColor, zerolinecolor: gridColor },
+    xaxis: { gridcolor: gridColor, zerolinecolor: gridColor, color: fontColor, tickfont: { color: fontColor }, titlefont: { color: fontColor } },
+    yaxis: { gridcolor: gridColor, zerolinecolor: gridColor, color: fontColor, tickfont: { color: fontColor }, titlefont: { color: fontColor } },
     legend: { bgcolor: "transparent", borderwidth: 0 },
     colorway: ["#4a90d9", "#fbbf24", "#f97316", "#ea580c", "#ef4444", "#8b5cf6", "#fb923c"],
   };
