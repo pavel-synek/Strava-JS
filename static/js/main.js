@@ -1,16 +1,22 @@
 // ── Globals ───────────────────────────────────────────────────────────────────
-const PLOTLY_LAYOUT = {
-  paper_bgcolor: "transparent",
-  plot_bgcolor: "transparent",
-  font: { color: "#e0e0e0", family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", size: 12 },
-  margin: { l: 50, r: 30, t: 30, b: 50 },
-  xaxis: { gridcolor: "#2e3347", zerolinecolor: "#2e3347" },
-  yaxis: { gridcolor: "#2e3347", zerolinecolor: "#2e3347" },
-  legend: { bgcolor: "transparent", borderwidth: 0 },
-  colorway: ["#4a90d9", "#27ae60", "#f1c40f", "#e67e22", "#e74c3c", "#9b59b6", "#1abc9c"],
-};
+function _buildPlotlyLayout() {
+  const light = document.documentElement.dataset.theme === "light";
+  const fontColor  = light ? "#374151" : "#e4e8ed";
+  const gridColor  = light ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.07)";
+  return {
+    paper_bgcolor: "transparent",
+    plot_bgcolor:  "transparent",
+    font: { color: fontColor, family: "'DM Sans', system-ui, sans-serif", size: 12 },
+    margin: { l: 50, r: 30, t: 30, b: 50 },
+    xaxis: { gridcolor: gridColor, zerolinecolor: gridColor },
+    yaxis: { gridcolor: gridColor, zerolinecolor: gridColor },
+    legend: { bgcolor: "transparent", borderwidth: 0 },
+    colorway: ["#4a90d9", "#0fba81", "#f59e0b", "#f97316", "#ef4444", "#9b59b6", "#14b8a6"],
+  };
+}
+let PLOTLY_LAYOUT = _buildPlotlyLayout();
 const PLOTLY_CONFIG = { responsive: true, displayModeBar: false };
-const ZONE_COLORS = { Z1: "#4a90d9", Z2: "#27ae60", Z3: "#f1c40f", Z4: "#e67e22", Z5: "#e74c3c", Easy: "#27ae60", Moderate: "#f1c40f", Hard: "#e74c3c" };
+const ZONE_COLORS = { Z1: "#4a90d9", Z2: "#0fba81", Z3: "#f59e0b", Z4: "#f97316", Z5: "#ef4444", Easy: "#0fba81", Moderate: "#f59e0b", Hard: "#ef4444" };
 
 // Track which tabs have been loaded
 const tabLoaded = {};
@@ -248,8 +254,30 @@ async function triggerKeboolaRun() {
   }
 }
 
+// ── Theme toggle ──────────────────────────────────────────────────────────────
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem("theme", theme);
+  PLOTLY_LAYOUT = _buildPlotlyLayout();
+  const btn = document.getElementById("theme-toggle");
+  if (btn) btn.textContent = theme === "light" ? "☾" : "☀";
+  reloadAllLoaded();
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("keboola-run-btn")?.addEventListener("click", triggerKeboolaRun);
+
+  // Restore saved theme (default: dark)
+  const saved = localStorage.getItem("theme") || "dark";
+  document.documentElement.dataset.theme = saved;
+  const btn = document.getElementById("theme-toggle");
+  if (btn) {
+    btn.textContent = saved === "light" ? "☾" : "☀";
+    btn.addEventListener("click", () => {
+      const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+      applyTheme(next);
+    });
+  }
 });
 
 document.addEventListener("DOMContentLoaded", init);

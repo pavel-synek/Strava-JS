@@ -18,6 +18,22 @@
   --font-mono: 'JetBrains Mono', 'Fira Mono', monospace;
 }
 
+[data-theme="light"] {
+  --bg:          #faf8f5;
+  --surface:     #ffffff;
+  --surface2:    #f2efe9;
+  --border:      rgba(0, 0, 0, 0.08);
+  --border-sub:  rgba(0, 0, 0, 0.04);
+  --accent:      #f97316;
+  --accent-dim:  rgba(249, 115, 22, 0.09);
+  --text:        #111827;
+  --text-dim:    #6b7280;
+  --text-muted:  #9ca3af;
+  --red:         #dc2626;
+  --z1: #2563eb; --z2: #059669; --z3: #d97706; --z4: #ea580c; --z5: #dc2626;
+  --easy: #059669; --moderate: #d97706; --hard: #dc2626;
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
@@ -84,6 +100,30 @@ header h1 .wordmark-accent { color: var(--accent); }
   color: var(--text-dim);
   font-family: var(--font-mono);
   font-size: 11px;
+}
+
+/* Theme toggle */
+#theme-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+  flex-shrink: 0;
+  line-height: 1;
+  padding: 0;
+}
+#theme-toggle:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-dim);
 }
 
 #keboola-run-btn {
