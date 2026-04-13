@@ -10,6 +10,13 @@ from flask.json.provider import DefaultJSONProvider
 
 import os
 
+# Load .env for local development
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 from data_loader import (
     _KEBOOLA_STORAGE_TOKEN,
     _KEBOOLA_STORAGE_URL,

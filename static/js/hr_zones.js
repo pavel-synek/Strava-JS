@@ -1,6 +1,6 @@
 function renderHRZones(data) {
   // Zone definitions table
-  const zoneColors = { Z1: "#4a90d9", Z2: "#27ae60", Z3: "#f1c40f", Z4: "#e67e22", Z5: "#e74c3c", Easy: "#27ae60", Moderate: "#f1c40f", Hard: "#e74c3c" };
+  const zoneColors = { Z1: "#4a90d9", Z2: "#fbbf24", Z3: "#f97316", Z4: "#ea580c", Z5: "#ef4444", Easy: "#fbbf24", Moderate: "#f97316", Hard: "#ef4444" };
   const rows = data.zone_defs.map(z => `
     <tr>
       <td><span class="zone-swatch" style="background:${zoneColors[z.name] || '#999'}"></span>${z.name}</td>
@@ -50,7 +50,7 @@ function renderHRZones(data) {
       {
         type: "scatter", x: ae.dates, y: ae.ae_rolling,
         mode: "lines", name: "4-week avg",
-        line: { color: "#1abc9c", width: 2 },
+        line: { color: "#f97316", width: 2 },
         hovertemplate: "4w avg: %{y:.5f}<extra></extra>",
       },
     ], {
@@ -78,7 +78,7 @@ function renderHRZones(data) {
           color: dr.pace, colorscale: "RdYlGn", reversescale: true,
           size: dr.distance_km.map(d => Math.min(Math.max(d / 3, 4), 18)),
           opacity: 0.7,
-          colorbar: { title: "Pace<br>(min/km)", tickfont: { color: "#e0e0e0" }, titlefont: { color: "#e0e0e0" } },
+          colorbar: { title: "Pace<br>(min/km)", tickfont: { color: _themeVars().fontColor }, titlefont: { color: _themeVars().fontColor } },
         },
         text: dr.dates,
         hovertemplate: "Date: %{text}<br>Early HR: %{x:.1f}<br>Late HR: %{y:.1f}<extra></extra>",
@@ -87,7 +87,7 @@ function renderHRZones(data) {
         type: "scatter",
         x: [minHr, maxHr], y: [minHr, maxHr],
         mode: "lines",
-        line: { color: "rgba(255,255,255,0.3)", dash: "dash", width: 1 },
+        line: { color: _themeVars().dimLine, dash: "dash", width: 1 },
         showlegend: false,
         hoverinfo: "skip",
       },
@@ -116,7 +116,7 @@ function renderHRZones(data) {
       {
         type: "scatter", x: cad.dates, y: cad.cadence_rolling,
         mode: "lines", name: "4-week avg",
-        line: { color: "#1abc9c", width: 2 },
+        line: { color: "#f97316", width: 2 },
         hovertemplate: "4w avg: %{y:.0f} spm<extra></extra>",
       },
     ], {
@@ -125,12 +125,12 @@ function renderHRZones(data) {
       yaxis: { ...PLOTLY_LAYOUT.yaxis, title: "Steps/min (spm)" },
       legend: { orientation: "h", y: 1.12, bgcolor: "transparent" },
       shapes: [
-        { type: "rect", x0: cad.dates[0], x1: cad.dates[cad.dates.length - 1], y0: 170, y1: 180, fillcolor: "rgba(39,174,96,0.1)", line: { width: 0 } },
-        { type: "line", x0: cad.dates[0], x1: cad.dates[cad.dates.length - 1], y0: 170, y1: 170, line: { color: "#27ae60", dash: "dot", width: 1 } },
-        { type: "line", x0: cad.dates[0], x1: cad.dates[cad.dates.length - 1], y0: 180, y1: 180, line: { color: "#27ae60", dash: "dot", width: 1 } },
+        { type: "rect", x0: cad.dates[0], x1: cad.dates[cad.dates.length - 1], y0: 170, y1: 180, fillcolor: "rgba(251,191,36,0.08)", line: { width: 0 } },
+        { type: "line", x0: cad.dates[0], x1: cad.dates[cad.dates.length - 1], y0: 170, y1: 170, line: { color: "#fbbf24", dash: "dot", width: 1 } },
+        { type: "line", x0: cad.dates[0], x1: cad.dates[cad.dates.length - 1], y0: 180, y1: 180, line: { color: "#fbbf24", dash: "dot", width: 1 } },
       ],
       annotations: [
-        { x: cad.dates[cad.dates.length - 1], y: 175, text: "Optimal 170–180", showarrow: false, xanchor: "right", font: { color: "#27ae60", size: 10 } },
+        { x: cad.dates[cad.dates.length - 1], y: 175, text: "Optimal 170–180", showarrow: false, xanchor: "right", font: { color: "#fbbf24", size: 10 } },
       ],
     }, PLOTLY_CONFIG);
   } else if (cadEl) {
@@ -141,7 +141,7 @@ function renderHRZones(data) {
   const decEl = document.getElementById("chart-decoupling");
   const dec = data.decoupling_factor;
   if (dec && dec.dates && dec.dates.length > 0) {
-    const decColors = dec.decoupling_pct.map(v => v != null && v >= 5 ? "#e74c3c" : "#27ae60");
+    const decColors = dec.decoupling_pct.map(v => v != null && v >= 5 ? "#ef4444" : "#fbbf24");
     Plotly.newPlot("chart-decoupling", [
       {
         type: "scatter", x: dec.dates, y: dec.decoupling_pct,
@@ -158,7 +158,7 @@ function renderHRZones(data) {
     ], {
       ...PLOTLY_LAYOUT,
       height: 300,
-      yaxis: { ...PLOTLY_LAYOUT.yaxis, title: "Cardiac drift (%)", zeroline: true, zerolinecolor: "#555" },
+      yaxis: { ...PLOTLY_LAYOUT.yaxis, title: "Cardiac drift (%)", zeroline: true, zerolinecolor: _themeVars().zeroLine },
       legend: { orientation: "h", y: 1.12, bgcolor: "transparent" },
       shapes: [
         { type: "line", x0: dec.dates[0], x1: dec.dates[dec.dates.length - 1], y0: 5, y1: 5, line: { color: "#e74c3c", dash: "dash", width: 1.5 } },
@@ -189,7 +189,7 @@ function renderHRZones(data) {
     const trace1 = {
       x: recDates, y: rec1,
       mode: 'markers', name: '1 min recovery',
-      marker: { color: '#27ae60', size: 5, opacity: 0.7 },
+      marker: { color: '#fb923c', size: 5, opacity: 0.7 },
       text: distKm.map((d, i) => `${d} km, ${pace[i]} min/km`),
       hovertemplate: '%{y:.1f} bpm<br>%{text}<extra>1 min</extra>',
       type: 'scatter',
@@ -197,7 +197,7 @@ function renderHRZones(data) {
     const trace2 = {
       x: recDates, y: rec2,
       mode: 'markers', name: '2 min recovery',
-      marker: { color: '#2ecc71', size: 5, opacity: 0.7 },
+      marker: { color: '#fbbf24', size: 5, opacity: 0.7 },
       text: distKm.map((d, i) => `${d} km, ${pace[i]} min/km`),
       hovertemplate: '%{y:.1f} bpm<br>%{text}<extra>2 min</extra>',
       type: 'scatter',
@@ -207,13 +207,13 @@ function renderHRZones(data) {
     const traceRoll1 = {
       x: recDates, y: roll1,
       mode: 'lines', name: '1 min (20-run avg)',
-      line: { color: '#1e8449', width: 2 },
+      line: { color: '#ea580c', width: 2 },
       type: 'scatter',
     };
     const traceRoll2 = {
       x: recDates, y: roll2,
       mode: 'lines', name: '2 min (20-run avg)',
-      line: { color: '#27ae60', width: 2, dash: 'dot' },
+      line: { color: '#f97316', width: 2, dash: 'dot' },
       type: 'scatter',
     };
     // Reference line at y=12 (good recovery threshold)
@@ -226,12 +226,10 @@ function renderHRZones(data) {
     };
 
     const layoutRec = {
-      title: 'HR Recovery po aktivitě',
-      paper_bgcolor: 'transparent',
-      plot_bgcolor: 'transparent',
-      font: { color: '#e0e0e0' },
-      xaxis: { gridcolor: '#333', type: 'date' },
-      yaxis: { gridcolor: '#333', title: 'BPM pokles' },
+      ...PLOTLY_LAYOUT,
+      title: { text: 'HR Recovery po aktivitě', font: { color: _themeVars().fontColor } },
+      xaxis: { ...PLOTLY_LAYOUT.xaxis, type: 'date' },
+      yaxis: { ...PLOTLY_LAYOUT.yaxis, title: 'BPM pokles' },
       legend: { orientation: 'h', y: -0.25 },
       margin: { t: 40, b: 80, l: 50, r: 20 },
       height: 280,

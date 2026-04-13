@@ -4,15 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Strava Training Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
   <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
   <link rel="stylesheet" href="/static/css/style.css" />
 </head>
 <body>
   <header>
-    <h1>🏃 Strava Training Dashboard</h1>
+    <h1><span class="wordmark-hi">Strava</span> <span class="wordmark-accent">Training</span> Dashboard</h1>
     <div id="header-meta"></div>
     <div id="keboola-bar">
       <span id="last-update-label">Last Update: <span id="last-update-value">—</span></span>
+      <button id="theme-toggle" title="Toggle light/dark theme">☀</button>
       <button id="keboola-run-btn" title="Run Keboola sync job">&#9654; Sync</button>
     </div>
   </header>
@@ -67,13 +71,9 @@
     <!-- ── Tab 1: Overview ── -->
     <section id="tab-overview" class="tab-content active">
       <div id="kpi-row" class="kpi-row"></div>
-      <div class="chart-row">
-        <div class="chart-box wide"><h3>Weekly mileage heatmap</h3><div id="chart-heatmap"></div></div>
-        <div class="chart-box narrow"><h3>Activity types</h3><div id="chart-sports"></div></div>
-      </div>
+      <div class="chart-box full"><h3>Weekly mileage heatmap</h3><div id="chart-heatmap"></div></div>
       <div class="chart-box full"><h3>Monthly distance &amp; elevation</h3><div id="chart-monthly"></div></div>
       <div id="streak-row" class="kpi-row"></div>
-      <div class="chart-box full"><h3>Shoe mileage</h3><p class="caption">Total km per shoe — replace after ~700 km</p><div id="chart-gear"></div></div>
     </section>
 
     <!-- ── Tab 2: HR Zones ── -->

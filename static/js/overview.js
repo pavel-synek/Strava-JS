@@ -21,7 +21,7 @@ function renderOverview(data) {
     colorscale: "Greens",
     hovertemplate: "Year: %{x}<br>Week: %{y}<br>Distance: %{z:.1f} km<extra></extra>",
     showscale: true,
-    colorbar: { title: "km", tickfont: { color: "#e0e0e0" }, titlefont: { color: "#e0e0e0" } },
+    colorbar: { title: "km", tickfont: { color: _themeVars().fontColor }, titlefont: { color: _themeVars().fontColor } },
   }], {
     ...PLOTLY_LAYOUT,
     height: 480,
@@ -29,46 +29,52 @@ function renderOverview(data) {
     xaxis: { ...PLOTLY_LAYOUT.xaxis, title: "Year" },
   }, PLOTLY_CONFIG);
 
-  // Sport pie
-  const sp = data.sports;
-  const sportColors = { Run: "#1abc9c", TrailRun: "#8e44ad", Ride: "#2980b9", Walk: "#95a5a6", Hike: "#d35400" };
-  Plotly.newPlot("chart-sports", [{
-    type: "pie",
-    labels: sp.labels,
-    values: sp.counts,
-    hole: 0.4,
-    marker: { colors: sp.labels.map(l => sportColors[l] || "#bdc3c7") },
-    hovertemplate: "<b>%{label}</b><br>%{value} activities<extra></extra>",
-    textinfo: "label+percent",
-    textfont: { color: "#e0e0e0" },
-  }], {
-    ...PLOTLY_LAYOUT,
-    height: 300,
-    margin: { l: 10, r: 10, t: 20, b: 10 },
-    showlegend: false,
-  }, PLOTLY_CONFIG);
-
-  // Monthly bar
+  // Monthly bar + line
   const m = data.monthly;
+  const tv = _themeVars();
   Plotly.newPlot("chart-monthly", [
     {
       type: "bar", x: m.months, y: m.distance,
-      name: "Distance (km)", marker: { color: "#1abc9c" }, yaxis: "y",
-      hovertemplate: "%{x}<br>%{y:.1f} km<extra></extra>",
+      name: "Distance (km)",
+      marker: {
+        color: "#f97316",
+        opacity: 0.85,
+        line: { width: 0 },
+      },
+      yaxis: "y",
+      hovertemplate: "<b>%{x}</b><br>Distance: %{y:.1f} km<extra></extra>",
     },
     {
-      type: "bar", x: m.months, y: m.elevation,
-      name: "Elevation (m)", marker: { color: "#e67e22", opacity: 0.7 }, yaxis: "y2",
-      hovertemplate: "%{x}<br>%{y:.0f} m<extra></extra>",
+      type: "scatter", mode: "lines+markers", x: m.months, y: m.elevation,
+      name: "Elevation (m)",
+      line: { color: "#38bdf8", width: 2.5, shape: "spline", smoothing: 0.6 },
+      marker: { color: "#38bdf8", size: 6, symbol: "circle", line: { color: tv.bg, width: 1.5 } },
+      yaxis: "y2",
+      hovertemplate: "<b>%{x}</b><br>Elevation: %{y:.0f} m<extra></extra>",
     },
   ], {
     ...PLOTLY_LAYOUT,
-    height: 320,
-    barmode: "overlay",
-    yaxis: { ...PLOTLY_LAYOUT.yaxis, title: "Distance (km)" },
-    yaxis2: { title: "Elevation (m)", overlaying: "y", side: "right", gridcolor: "transparent", color: "#e0e0e0" },
-    legend: { orientation: "h", y: 1.1, bgcolor: "transparent" },
-    xaxis: { ...PLOTLY_LAYOUT.xaxis, tickangle: -45 },
+    height: 340,
+    yaxis: {
+      ...PLOTLY_LAYOUT.yaxis,
+      title: { text: "Distance (km)", standoff: 12 },
+      gridcolor: tv.grid,
+    },
+    yaxis2: {
+      title: { text: "Elevation (m)", standoff: 12 },
+      overlaying: "y", side: "right",
+      gridcolor: "transparent",
+      color: "#38bdf8",
+      tickfont: { color: "#38bdf8" },
+      titlefont: { color: "#38bdf8" },
+    },
+    legend: {
+      orientation: "h", y: 1.08, x: 0.5, xanchor: "center",
+      bgcolor: "transparent",
+      font: { size: 12 },
+    },
+    xaxis: { ...PLOTLY_LAYOUT.xaxis, tickangle: -40, tickfont: { size: 11 } },
+    bargap: 0.25,
   }, PLOTLY_CONFIG);
 
   // Streaks
@@ -79,39 +85,4 @@ function renderOverview(data) {
     kpiCard("Longest streak", `${s.longest} days`, null, "") +
     kpiCard(`Active days in ${s.year}`, s.days_active_this_year, null, "");
 
-  // Gear mileage
-  const gearEl = document.getElementById("chart-gear");
-  if (data.gear_mileage && data.gear_mileage.length > 0) {
-    const gearNames = data.gear_mileage.map(g => g.gear_name);
-    const gearDist = data.gear_mileage.map(g => g.distance_km);
-    const WARNING_KM = 700;
-    Plotly.newPlot("chart-gear", [
-      {
-        type: "bar",
-        orientation: "h",
-        x: gearDist,
-        y: gearNames,
-        marker: { color: gearDist.map(d => d >= WARNING_KM ? "#e74c3c" : "#1abc9c") },
-        hovertemplate: "<b>%{y}</b><br>%{x:.0f} km<extra></extra>",
-        name: "Mileage",
-      },
-    ], {
-      ...PLOTLY_LAYOUT,
-      height: Math.max(160, gearNames.length * 48 + 60),
-      margin: { l: 180, r: 60, t: 20, b: 40 },
-      xaxis: { ...PLOTLY_LAYOUT.xaxis, title: "Total km" },
-      yaxis: { ...PLOTLY_LAYOUT.yaxis, autorange: "reversed" },
-      shapes: [{
-        type: "line",
-        x0: WARNING_KM, x1: WARNING_KM, y0: -0.5, y1: gearNames.length - 0.5,
-        line: { color: "#e74c3c", dash: "dot", width: 1.5 },
-      }],
-      annotations: [{
-        x: WARNING_KM, y: 0, text: "700 km", showarrow: false,
-        xanchor: "left", font: { color: "#e74c3c", size: 11 }, xshift: 4,
-      }],
-    }, PLOTLY_CONFIG);
-  } else if (gearEl) {
-    gearEl.innerHTML = `<p class="caption" style="padding:20px">No shoe data available.</p>`;
-  }
 }
