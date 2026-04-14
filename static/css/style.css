@@ -12,8 +12,8 @@
   --text-dim:    #94a3b8;
   --text-muted:  #64748b;
   --red:         #ef4444;
-  --z1: #4a90d9; --z2: #27ae60; --z3: #f1c40f; --z4: #e67e22; --z5: #e74c3c;
-  --easy: #27ae60; --moderate: #f1c40f; --hard: #e74c3c;
+  --z1: #4a90d9; --z2: #22c55e; --z3: #facc15; --z4: #f97316; --z5: #dc2626;
+  --easy: #22c55e; --moderate: #facc15; --hard: #dc2626;
   --font-ui:   'Nunito', system-ui, sans-serif;
 }
 
@@ -67,7 +67,7 @@ header {
 header h1 {
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-dim);
+  color: #cad1dc;
   letter-spacing: 0.04em;
   white-space: nowrap;
 }
@@ -76,7 +76,7 @@ header h1 .wordmark-hi { color: var(--text); }
 header h1 .wordmark-accent { color: var(--accent); }
 
 #header-meta {
-  color: var(--text-dim);
+  color: #cad1dc;
   font-size: 11px;
   flex: 1;
 }
@@ -91,12 +91,12 @@ header h1 .wordmark-accent { color: var(--accent); }
 
 #last-update-label {
   font-size: 11px;
-  color: var(--text-muted);
+  color: #94a3b8;
   white-space: nowrap;
 }
 
 #last-update-value {
-  color: var(--text-dim);
+  color: #cad1dc;
   font-size: 11px;
 }
 
@@ -104,7 +104,7 @@ header h1 .wordmark-accent { color: var(--accent); }
 #theme-toggle {
   background: transparent;
   border: 1px solid var(--border);
-  color: var(--text-dim);
+  color: #cad1dc;
   width: 28px;
   height: 28px;
   border-radius: 4px;
@@ -127,7 +127,7 @@ header h1 .wordmark-accent { color: var(--accent); }
 #keboola-run-btn {
   background: transparent;
   border: 1px solid var(--border);
-  color: var(--text-dim);
+  color: #cad1dc;
   padding: 4px 12px;
   border-radius: 4px;
   font-size: 11px;

@@ -1,6 +1,6 @@
 function renderHRZones(data) {
   // Zone definitions table
-  const zoneColors = { Z1: "#4a90d9", Z2: "#27ae60", Z3: "#f1c40f", Z4: "#e67e22", Z5: "#e74c3c", Easy: "#27ae60", Moderate: "#f1c40f", Hard: "#e74c3c" };
+  const zoneColors = { Z1: "#4a90d9", Z2: "#22c55e", Z3: "#facc15", Z4: "#f97316", Z5: "#dc2626", Easy: "#22c55e", Moderate: "#facc15", Hard: "#dc2626" };
   const rows = data.zone_defs.map(z => `
     <tr>
       <td><span class="zone-swatch" style="background:${zoneColors[z.name] || '#999'}"></span>${z.name}</td>
