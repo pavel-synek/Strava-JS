@@ -9,11 +9,11 @@
   --accent:      #f97316;
   --accent-dim:  rgba(249, 115, 22, 0.09);
   --text:        #e4e8ed;
-  --text-dim:    #64748b;
-  --text-muted:  #2e3a47;
+  --text-dim:    #94a3b8;
+  --text-muted:  #64748b;
   --red:         #ef4444;
-  --z1: #4a90d9; --z2: #fbbf24; --z3: #f97316; --z4: #ea580c; --z5: #ef4444;
-  --easy: #fbbf24; --moderate: #f97316; --hard: #ef4444;
+  --z1: #4a90d9; --z2: #27ae60; --z3: #f1c40f; --z4: #e67e22; --z5: #e74c3c;
+  --easy: #27ae60; --moderate: #f1c40f; --hard: #e74c3c;
   --font-ui:   'Nunito', system-ui, sans-serif;
 }
 
