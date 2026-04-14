@@ -12,13 +12,6 @@ _KEBOOLA_STORAGE_URL = os.environ.get(
 )
 _KEBOOLA_STORAGE_TOKEN = os.environ.get("KEBOOLA_STORAGE_TOKEN")
 
-# Supabase / PostgreSQL connection
-_SUPABASE_HOST     = os.environ.get("SUPABASE_HOST")
-_SUPABASE_PORT     = os.environ.get("SUPABASE_PORT", "5432")
-_SUPABASE_DB       = os.environ.get("SUPABASE_DB", "postgres")
-_SUPABASE_USER     = os.environ.get("SUPABASE_USER", "postgres")
-_SUPABASE_PASSWORD = os.environ.get("SUPABASE_PASSWORD")
-
 # BigQuery fully-qualified table names (GCP US stack)
 _BQ_PROJECT = "kbc-use4-1566-d355"
 _BQ_DATASET = "in_c_Garmin_full"
@@ -39,52 +32,8 @@ _KEBOOLA_LOCAL_PATHS = {
     "garmin_heart_rate_intraday.csv": f"/data/in/tables/{_KEBOOLA_BUCKET}.garmin_heart_rate_intraday.csv",
 }
 
-_SUPABASE_TABLES = {
-    "activities.csv":                 "activities",
-    "activity_details.csv":           "activity_details",
-    "streams.csv":                    "streams",
-    "garmin_heart_rate.csv":          "garmin_heart_rate",
-    "garmin_heart_rate_intraday.csv": "garmin_heart_rate_intraday",
-}
-
 # Module-level cache for the GCS/BQ access token (valid ~1 hour)
 _gcp_token_cache: dict = {"token": None, "expires_at": 0}
-
-
-# ── Supabase / PostgreSQL helpers ─────────────────────────────────────────────
-
-def _has_supabase() -> bool:
-    return bool(_SUPABASE_HOST and _SUPABASE_PASSWORD)
-
-
-def _supabase_engine():
-    from sqlalchemy import create_engine
-    from urllib.parse import quote_plus
-    url = (
-        f"postgresql+psycopg2://{_SUPABASE_USER}:{quote_plus(_SUPABASE_PASSWORD)}"
-        f"@{_SUPABASE_HOST}:{_SUPABASE_PORT}/{_SUPABASE_DB}"
-    )
-    return create_engine(url)
-
-
-def _load_from_supabase(table_name: str) -> pd.DataFrame:
-    engine = _supabase_engine()
-    with engine.connect() as conn:
-        df = pd.read_sql(f'SELECT * FROM "{table_name}"', conn)
-    # Coerce text columns to numeric where all values are numeric
-    for col in df.select_dtypes(include="object").columns:
-        try:
-            converted = pd.to_numeric(df[col])
-            df[col] = converted
-        except (ValueError, TypeError):
-            pass
-    return df
-
-
-def _pg_query(sql: str) -> pd.DataFrame:
-    engine = _supabase_engine()
-    with engine.connect() as conn:
-        return pd.read_sql(sql, conn)
 
 
 # ── GCS file download helpers ──────────────────────────────────────────────────
@@ -302,15 +251,6 @@ def _bq_query(sql: str) -> pd.DataFrame:
 # ── Data loaders ───────────────────────────────────────────────────────────────
 
 def _load_csv(filename: str, **kwargs) -> pd.DataFrame:
-    if _has_supabase() and filename in _SUPABASE_TABLES:
-        df = _load_from_supabase(_SUPABASE_TABLES[filename])
-        usecols = kwargs.get("usecols")
-        if usecols is not None:
-            if callable(usecols):
-                df = df[[c for c in df.columns if usecols(c)]]
-            elif isinstance(usecols, list):
-                df = df[[c for c in usecols if c in df.columns]]
-        return df
     if _KEBOOLA_STORAGE_TOKEN and filename in _KEBOOLA_TABLE_IDS:
         table_id = _KEBOOLA_TABLE_IDS[filename]
         return pd.read_csv(_fetch_keboola_table(table_id), **kwargs)
@@ -368,13 +308,8 @@ def load_activity_details() -> pd.DataFrame:
 def get_zone_summary(zones: dict) -> pd.DataFrame:
     """
     Compute seconds per HR zone per activity.
-    Priority: Supabase SQL → BigQuery → local streams fallback.
+    Priority: BigQuery → local streams fallback.
     """
-    if _has_supabase():
-        try:
-            return _get_zone_summary_pg(zones)
-        except Exception:
-            pass
     if _KEBOOLA_STORAGE_TOKEN:
         try:
             return _get_zone_summary_bq(zones)
@@ -383,39 +318,6 @@ def get_zone_summary(zones: dict) -> pd.DataFrame:
 
     streams = _load_streams_local()
     return _zone_summary_from_df(streams, zones)
-
-
-def _get_zone_summary_pg(zones: dict) -> pd.DataFrame:
-    zone_names = list(zones.keys())
-    boundaries = [zones[z][0] for z in zone_names] + [zones[zone_names[-1]][1]]
-
-    cases = ",\n        ".join(
-        f"COUNT(*) FILTER (WHERE hr >= {boundaries[i]:.4f} AND hr < {boundaries[i+1]:.4f}) AS \"{zone_names[i]}_sec\""
-        for i in range(len(zone_names))
-    )
-
-    sql = f"""
-    SELECT
-        activity_id,
-        {cases}
-    FROM (
-        SELECT
-            activity_id,
-            NULLIF(heartrate, '')::FLOAT AS hr
-        FROM streams
-        WHERE heartrate IS NOT NULL AND heartrate != ''
-    ) t
-    WHERE hr > 0
-    GROUP BY activity_id
-    """
-    df = _pg_query(sql)
-    if df.empty:
-        return df
-    df["activity_id"] = pd.to_numeric(df["activity_id"], errors="coerce")
-    for col in df.columns:
-        if col.endswith("_sec"):
-            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
-    return df
 
 
 def _get_zone_summary_bq(zones: dict) -> pd.DataFrame:
@@ -454,13 +356,8 @@ def _get_zone_summary_bq(zones: dict) -> pd.DataFrame:
 def get_all_hr_drift() -> pd.DataFrame:
     """
     Compute early/late HR per activity.
-    Priority: Supabase SQL → BigQuery → local streams fallback.
+    Priority: BigQuery → local streams fallback.
     """
-    if _has_supabase():
-        try:
-            return _get_hr_drift_pg()
-        except Exception:
-            pass
     if _KEBOOLA_STORAGE_TOKEN:
         try:
             return _get_hr_drift_bq()
@@ -469,42 +366,6 @@ def get_all_hr_drift() -> pd.DataFrame:
 
     streams = _load_streams_local()
     return _hr_drift_from_df(streams)
-
-
-def _get_hr_drift_pg() -> pd.DataFrame:
-    sql = """
-    WITH numbered AS (
-        SELECT
-            activity_id,
-            NULLIF(heartrate, '')::FLOAT AS hr,
-            ROW_NUMBER() OVER (PARTITION BY activity_id ORDER BY NULLIF(time, '')::INT) AS rn,
-            COUNT(*) OVER (PARTITION BY activity_id) AS total
-        FROM streams
-        WHERE heartrate IS NOT NULL AND heartrate != ''
-          AND NULLIF(heartrate, '')::FLOAT > 0
-          AND moving = 'True'
-    ),
-    counts AS (
-        SELECT activity_id, COUNT(*) AS n FROM numbered GROUP BY activity_id
-    )
-    SELECT
-        n.activity_id,
-        AVG(CASE WHEN n.rn <= FLOOR(c.n * 0.2) THEN n.hr END) AS early_hr,
-        AVG(CASE WHEN n.rn >  FLOOR(c.n * 0.8) THEN n.hr END) AS late_hr
-    FROM numbered n
-    JOIN counts c USING (activity_id)
-    WHERE c.n >= 20
-    GROUP BY n.activity_id
-    HAVING AVG(CASE WHEN n.rn <= FLOOR(c.n * 0.2) THEN n.hr END) IS NOT NULL
-       AND AVG(CASE WHEN n.rn >  FLOOR(c.n * 0.8) THEN n.hr END) IS NOT NULL
-    """
-    df = _pg_query(sql)
-    if df.empty:
-        return df
-    df["activity_id"] = pd.to_numeric(df["activity_id"], errors="coerce")
-    df["early_hr"] = pd.to_numeric(df["early_hr"], errors="coerce")
-    df["late_hr"] = pd.to_numeric(df["late_hr"], errors="coerce")
-    return df.dropna(subset=["early_hr", "late_hr"])
 
 
 def _get_hr_drift_bq() -> pd.DataFrame:
