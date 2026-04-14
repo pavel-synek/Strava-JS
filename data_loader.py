@@ -35,6 +35,10 @@ _KEBOOLA_LOCAL_PATHS = {
 # Module-level cache for the GCS/BQ access token (valid ~1 hour)
 _gcp_token_cache: dict = {"token": None, "expires_at": 0}
 
+# Cache the last Keboola file_id so we can refresh the GCP token cheaply
+# (one GET /files/{id}?federationToken=1 instead of a full table export)
+_last_file_id_cache: dict = {"file_id": None}
+
 
 # ── GCS file download helpers ──────────────────────────────────────────────────
 
@@ -132,6 +136,7 @@ def _fetch_keboola_table(table_id: str) -> io.StringIO:
         raise RuntimeError("Keboola export timed out after 180 seconds")
 
     file_id = job["results"]["file"]["id"]
+    _last_file_id_cache["file_id"] = file_id  # reuse for fast token refresh
 
     # 3a. Fetch table column names (sliced GCS exports are headerless)
     table_meta = requests.get(
@@ -211,6 +216,36 @@ def _fetch_keboola_table(table_id: str) -> io.StringIO:
 
 # ── BigQuery query helper ──────────────────────────────────────────────────────
 
+def _refresh_gcp_token() -> str | None:
+    """
+    Refresh the GCP token by re-fetching the federation credentials for the
+    last known Keboola file_id — a single fast GET instead of a full table
+    export.  Falls back to a full activities export if no file_id is cached.
+    """
+    import requests
+
+    file_id = _last_file_id_cache.get("file_id")
+    if file_id:
+        try:
+            kbc_headers = {"X-StorageApi-Token": _KEBOOLA_STORAGE_TOKEN}
+            file_meta = requests.get(
+                f"{_KEBOOLA_STORAGE_URL}/v2/storage/files/{file_id}?federationToken=1",
+                headers=kbc_headers,
+                timeout=10,
+            ).json()
+            token = _extract_gcs_token(file_meta)
+            if token:
+                _gcp_token_cache["token"] = token
+                _gcp_token_cache["expires_at"] = time.time() + 3000
+                return token
+        except Exception:
+            pass
+
+    # Slow fallback: trigger a fresh activities export to obtain a new token
+    _fetch_keboola_table(f"{_KEBOOLA_BUCKET}.activities")
+    return _gcp_token_cache.get("token")
+
+
 def _bq_query(sql: str) -> pd.DataFrame:
     """
     Run a synchronous BigQuery query using the cached GCP access token.
@@ -220,9 +255,7 @@ def _bq_query(sql: str) -> pd.DataFrame:
 
     token = _gcp_token_cache.get("token")
     if not token or time.time() > _gcp_token_cache.get("expires_at", 0):
-        # Trigger a small export to refresh the token
-        _fetch_keboola_table(f"{_KEBOOLA_BUCKET}.activities")
-        token = _gcp_token_cache.get("token")
+        token = _refresh_gcp_token()
         if not token:
             raise RuntimeError("Could not obtain GCP access token for BigQuery")
 
@@ -295,14 +328,12 @@ def load_activities() -> pd.DataFrame:
 
 @functools.lru_cache(maxsize=1)
 def load_activity_details() -> pd.DataFrame:
-    cols = [
+    cols = {
         "id", "calories", "average_cadence", "average_watts", "max_watts",
         "weighted_average_watts", "kilojoules", "device_watts", "has_heartrate",
         "splits_metric", "gear_name",
-    ]
-    df = _load_csv("activity_details.csv", low_memory=False)
-    load_cols = [c for c in cols if c in df.columns]
-    return df[load_cols]
+    }
+    return _load_csv("activity_details.csv", usecols=lambda c: c in cols, low_memory=False)
 
 
 def get_zone_summary(zones: dict) -> pd.DataFrame:
@@ -473,3 +504,27 @@ def load_garmin_hr_intraday() -> pd.DataFrame:
     df = df.dropna(subset=["heartRate"])
     df = df[df["heartRate"] > 0]
     return df[["date", "heartRate", "timestampGMT"]]
+
+
+def warm_all_caches() -> None:
+    """
+    Fetch all Keboola tables concurrently so subsequent requests are served
+    from the in-memory LRU cache.  Cuts cold-start time from ~N * T_single
+    to ~T_max (the slowest individual table).
+    """
+    import concurrent.futures
+
+    loaders = [
+        load_activities,
+        load_activity_details,
+        load_garmin_hr_daily,
+        load_garmin_hr_intraday,
+    ]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(loaders)) as ex:
+        futures = {ex.submit(fn): fn.__name__ for fn in loaders}
+        for future in concurrent.futures.as_completed(futures):
+            name = futures[future]
+            try:
+                future.result()
+            except Exception as exc:
+                print(f"[warm_caches] {name} failed: {exc}")

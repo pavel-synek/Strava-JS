@@ -27,6 +27,7 @@ from data_loader import (
     load_activity_details,
     load_garmin_hr_daily,
     load_garmin_hr_intraday,
+    warm_all_caches,
 )
 from metrics import (
     compute_acwr,
@@ -69,6 +70,14 @@ class _SafeJSONProvider(DefaultJSONProvider):
 app = Flask(__name__)
 app.json_provider_class = _SafeJSONProvider
 app.json = _SafeJSONProvider(app)
+
+# Pre-warm all Keboola data caches in parallel so that the first real request
+# is served from memory rather than blocking on sequential table exports.
+if _KEBOOLA_STORAGE_TOKEN:
+    try:
+        warm_all_caches()
+    except Exception as _warm_err:
+        print(f"[startup] Cache pre-warm failed: {_warm_err}")
 
 
 RESTING_HR = 45.0
