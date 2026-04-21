@@ -790,7 +790,7 @@ def api_debug():
 
 # ── Keboola Job API ───────────────────────────────────────────────────────────
 
-_KEBOOLA_REFERENCE_JOB_ID = "42285798"
+_KEBOOLA_REFERENCE_JOB_ID = os.environ.get("KEBOOLA_REFERENCE_JOB_ID", "")
 _KEBOOLA_QUEUE_URL = _KEBOOLA_STORAGE_URL.replace("connection.", "queue.")
 _keboola_job_config_cache: dict = {}
 
